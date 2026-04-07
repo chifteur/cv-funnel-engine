@@ -1,0 +1,35 @@
+name: Deploiement sur DreamHost
+on:
+  workflow_dispatch: # Permet le lancement manuel depuis l'onglet Actions
+    inputs:
+      reason:
+        description: 'Raison du déploiement (optionnel)'
+        required: false
+        default: 'Mise à jour du site'
+      dry_run:
+        description: 'Simulation seulement (true/false)'
+        required: true
+        default: 'true'
+jobs:
+  web-deploy:
+    name: Transfert des fichiers
+    runs-on: ubuntu-latest
+    steps:
+    - name: 🚚 Recuperation du code
+      uses: actions/checkout@v4
+
+    - name: 🚀 Déploiement par rsync (SSH)
+      uses: Burnett01/rsync-deployments@7.0.1
+      with:
+        switches: >- # -a: archive, -v: verbose, -z: compress, --delete: nettoie le serveur          
+            -avz --delete
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+            --exclude='.git/'
+            --exclude='.github/'
+            --exclude='aurevoir2026/'
+            --exclude='core/config.php'
+        path: ./                  # Dossier source (votre dépôt GitHub)
+        remote_path: /home/manganese/manganese.ch/ # CHEMIN ABSOLU REQUIS
+        remote_host: ${{ secrets.FTP_SERVER }}
+        remote_user: ${{ secrets.FTP_USERNAME }}
+        remote_key: ${{ secrets.SSH_PRIVATE_KEY }} # Utilisation d'une clé SSH (Recommandé)        exclude: |
