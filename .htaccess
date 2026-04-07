@@ -1,0 +1,7 @@
+RewriteEngine on
+
+# 1. Si la requête n'est pas déjà pour le dossier public
+RewriteCond %{REQUEST_URI} !^/public/
+
+# 2. On redirige tout vers le dossier public de manière invisible
+RewriteRule ^(.*)$ public/$1 [L]
