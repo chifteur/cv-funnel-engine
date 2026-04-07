@@ -46,10 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // --- 2. RÉCUPÉRATION DES DONNÉES ---
 $profile = $db->query("SELECT * FROM profile_settings WHERE id=1")->fetch();
-$apps = $db->query("SELECT a.*, (SELECT COUNT(*) FROM telemetry_events WHERE app_id = a.id) as visits FROM applications a ORDER BY created_at DESC")->fetchAll();
+$apps = $db->query("SELECT a.*, (SELECT COUNT(*) FROM tracking_logs WHERE app_id = a.id) as visits FROM applications a ORDER BY created_at DESC")->fetchAll();
 $exps = $db->query("SELECT * FROM cv_experiences ORDER BY id DESC")->fetchAll();
-$telemetry = $db->query("SELECT e.*, a.company_name FROM telemetry_events e JOIN applications a ON e.app_id = a.id ORDER BY e.created_at DESC LIMIT 50")->fetchAll();
-?>
+$telemetry = $db->query("
+    SELECT e.*, a.company_name 
+    FROM telemetry_events e 
+    JOIN telemetry_sessions s ON e.session_id = s.id 
+    JOIN applications a ON s.app_id = a.id 
+    ORDER BY e.created_at DESC 
+    LIMIT 50
+")->fetchAll();?>
 
 <!DOCTYPE html>
 <html lang="fr">
@@ -172,8 +178,8 @@ $telemetry = $db->query("SELECT e.*, a.company_name FROM telemetry_events e JOIN
                             <?php foreach ($telemetry as $log): ?>
                                 <div class="border-b border-slate-800 pb-2">
                                     <span class="text-blue-400">[<?= substr($log['created_at'], 11, 5) ?>]</span> 
-                                    <span class="text-slate-200"><?= $log['company_name'] ?> :</span> 
-                                    <?= htmlspecialchars($log['event_type']) ?> (<?= htmlspecialchars($log['event_details']) ?>)
+                                    <span class="text-slate-200"><?= htmlspecialchars($log['company_name']) ?> :</span> 
+                                    <?= htmlspecialchars($log['type']) ?> (<?= htmlspecialchars($log['data']) ?>)
                                 </div>
                             <?php endforeach; ?>
                         </div>
