@@ -98,22 +98,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "✅ Formation supprimée.";
         }
 
-    } catch (Exception $e) {
-        $message = "❌ Erreur SQL : " . $e->getMessage();
-        error_log("MANGANESE DEBUG - Action: $action - Error: " . $e->getMessage());
-    }
-
-    try {    
-        if ($action === 'update_edu') {
-            $stmt = $db->prepare("UPDATE cv_education SET degree=?, institution=?, year=?, icon=? WHERE id=?");
-            $stmt->execute([$_POST['degree'], $_POST['institution'], $_POST['year'], $_POST['icon'], $_POST['id']]);
+        // --- CRUD CV : LANGUES ---
+        if ($action === 'add_lang') {
+            $stmt = $db->prepare("INSERT INTO cv_languages (label, level) VALUES (?, ?)");
+            $stmt->execute([$_POST['label'], $_POST['level'] ?? '']);
+            $message = "✅ Langue ajoutée.";
         }
-        if ($action === 'delete_edu') {
-            $stmt = $db->prepare("DELETE FROM cv_education WHERE id = ?");
+        if ($action === 'update_lang') {
+            $stmt = $db->prepare("UPDATE cv_languages SET label=?, level=? WHERE id=?");
+            $stmt->execute([$_POST['label'], $_POST['level'] ?? '', $_POST['id']]);
+            $message = "✅ Langue mise à jour.";
+        }
+        if ($action === 'delete_lang') {
+            $stmt = $db->prepare("DELETE FROM cv_languages WHERE id = ?");
             $stmt->execute([$_POST['id']]);
+            $message = "✅ Langue supprimée.";
         }
-
-    } catch (Exception $e) {
+        } catch (Exception $e) {
         $message = "❌ Erreur SQL : " . $e->getMessage();
     }
 }
@@ -156,6 +157,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                 draggedExpId: null,
                 allExps: <?= json_encode($cv_exps) ?>,
                 allApps: <?= json_encode($apps) ?>,
+                allLangs: <?= json_encode($cv_langs) ?>,
                 prepEdit(type, data = {}) {
                     this.editItem = { type: type, ...data };
                 },
@@ -334,16 +336,20 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                         </div>
                         <div class="space-y-4">
                             <h3 class="font-bold text-slate-400 uppercase text-xs">Langues</h3>
-                            <?php foreach ($cv_langs as $l): ?>
+                            <template x-for="lang in allLangs" :key="lang.id">
                                 <div class="bg-white p-2 border rounded flex justify-between items-center">
-                                    <span class="text-sm font-bold"><?= htmlspecialchars($l['label']) ?> : <?= htmlspecialchars($l['level']) ?></span>
-                                    <form method="POST" style="display:inline">
-                                        <input type="hidden" name="action" value="delete_lang">
-                                        <input type="hidden" name="id" value="<?= $l['id'] ?>">
-                                        <button type="submit" class="text-red-200">✕</button>
-                                    </form>
+                                    <span class="text-sm font-bold" x-text="`${lang.label} : ${lang.level}`"></span>
+                                    <div class="flex gap-2">
+                                        <button @click="editItem = {type: 'lang', ...lang}" class="text-blue-400"><i class="fa-solid fa-pen"></i></button>
+                                        <form method="POST" style="display:inline">
+                                            <input type="hidden" name="action" value="delete_lang">
+                                            <input type="hidden" name="id" :value="lang.id">
+                                            <button type="submit" class="text-red-200">✕</button>
+                                        </form>
+                                    </div>
                                 </div>
-                            <?php endforeach; ?>
+                            </template>
+                            <button @click="editItem = {type: 'lang', id:'', label:'', level:''}" class="w-full border border-dashed p-2 text-xs text-slate-400 font-bold hover:text-blue-600">+ Ajouter Langue</button>
                         </div>
                     </div>
 
@@ -505,6 +511,12 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <input type="text" name="institution" x-model="editItem.institution" placeholder="École" class="border p-3 rounded-xl w-full">
                     <input type="text" name="year" x-model="editItem.year" placeholder="Année" class="border p-3 rounded-xl w-full">
                     <input type="hidden" name="icon" x-model="editItem.icon" value="">
+                </div>
+
+                <!-- Langue -->
+                <div x-show="editItem && editItem.type === 'lang'" class="space-y-4">
+                    <input type="text" name="label" x-model="editItem.label" placeholder="Langue (ex: Français)" class="border p-3 rounded-xl w-full">
+                    <input type="text" name="level" x-model="editItem.level" placeholder="Niveau (ex: Natif)" class="border p-3 rounded-xl w-full">
                 </div>
 
                 <!-- Application -->

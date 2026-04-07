@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: grahan.pdx1-mysql-a7-5a.dreamhost.com
--- Generation Time: Apr 07, 2026 at 02:31 AM
+-- Generation Time: Apr 07, 2026 at 08:23 AM
 -- Server version: 8.0.41-0ubuntu0.24.04.1
 -- PHP Version: 8.1.2-1ubuntu2.23
 
@@ -45,7 +45,7 @@ CREATE TABLE `applications` (
 
 INSERT INTO `applications` (`id`, `slug`, `company_name`, `job_title`, `job_url`, `custom_pitch`, `default_lens`, `created_at`, `status`) VALUES
 (1, 'jenov-test', 'J-eNOV SA', 'Directeur Ops', 'https://www.jobup.ch/fr/emplois/detail/c9e00447-7dbe-410b-87f7-f12729462ba1/', 'Bonjour David, voici un test...', 'ops', '2026-04-04 10:08:35', 'sent'),
-(2, 'vnv-test', 'VNV SA', 'Software Manager', 'https://www.linkedin.com/jobs/view/4325498872/', 'Bonjour Yannick, ceci est un test', 'management', '2026-04-04 10:09:25', 'sent');
+(2, 'vnv-test', 'VNV SA', 'Software Manager', 'https://www.linkedin.com/jobs/view/4325498872/', 'Bonjour Yannick, ceci est un test 2', 'management', '2026-04-04 10:09:25', 'sent');
 
 -- --------------------------------------------------------
 
@@ -76,6 +76,16 @@ CREATE TABLE `cv_education` (
   `icon` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT 'fa-graduation-cap'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
+--
+-- Dumping data for table `cv_education`
+--
+
+INSERT INTO `cv_education` (`id`, `degree`, `institution`, `year`, `icon`) VALUES
+(1, 'Brevet Fédéral - Spécialiste conduite d’équipe (ASFC)', 'ASFC', '2024-2025', 'fa-award'),
+(2, 'Ingénieur HES en informatique', 'HE-ARC', '2001', 'fa-graduation-cap'),
+(3, 'SAFe 6 Agilist Certification', 'Scaled Agile', '2023', 'fa-certificate'),
+(4, 'ScrumMaster Certification', 'Scrum Alliance', '2022', 'fa-certificate');
+
 -- --------------------------------------------------------
 
 --
@@ -89,8 +99,20 @@ CREATE TABLE `cv_experiences` (
   `location` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `period` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `content` text COLLATE utf8mb3_unicode_ci,
-  `category` enum('management','tech','ops') COLLATE utf8mb3_unicode_ci DEFAULT NULL
+  `category` enum('management','tech','ops') COLLATE utf8mb3_unicode_ci DEFAULT NULL,
+  `display_order` int NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+--
+-- Dumping data for table `cv_experiences`
+--
+
+INSERT INTO `cv_experiences` (`id`, `company`, `role`, `location`, `period`, `content`, `category`, `display_order`) VALUES
+(1, 'Membre de la Direction (Co-management)', 'COO | Software Manager', 'Courtelary', '2019 — Présent', '• Management d’organisations internationales (Suisse, France, Maroc, Inde).\n• Alignement stratégique entre Sales, Services, R&D et C-level.\n• Surveillance budgétaire pour la R&D et les opérations Cloud.\n• Optimisation des processus et change management pour la scalabilité.', 'management', 0),
+(2, 'SwissTiming (Swatch Group)', 'Software Architect & Deputy Project Manager', 'Corgémont', '2012 — 2018', '• Architecture logicielle du système de scoring vidéo multisport pour les JO de Rio 2016.\n• Redesign complet d’un framework de développement SDK.\n• Gestion de projet et coordination technique.', 'ops', 1),
+(3, 'SolvAxis (ProConcept)', 'Lead Software Architect', 'Sonceboz', '2009 — 2011', '• Change Management : Modernisation de l’ERP vers une version Web (AJAX/JS).\n• Industrialisation : Mise en place des processus Agile/SCRUM et de Git.\n• Gestion des impacts technologiques et humains.', 'tech', 3),
+(4, 'MN Manganese Sàrl', 'Independent Infrastructure Consultant', 'Courtelary', '2008 — 2018', '• Conseil stratégique : Accompagnement des PME dans la structuration et la sécurisation de leurs systèmes d’information.', 'ops', 2),
+(5, 'ProConcept SA', 'Software Engineer', 'Sonceboz', '2001 — 2009', '• Développement et maintenance du framework ERP ProConcept (Delphi, Java, C#).\n• Migration de l’ERP vers MS.Net 2.0 pour Audemars Piguet (marché Japon).', 'tech', 4);
 
 -- --------------------------------------------------------
 
@@ -104,6 +126,14 @@ CREATE TABLE `cv_languages` (
   `level` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
+--
+-- Dumping data for table `cv_languages`
+--
+
+INSERT INTO `cv_languages` (`id`, `label`, `level`) VALUES
+(1, 'Français', 'Langue maternelle'),
+(2, 'Anglais', 'Niveau B1/B2');
+
 -- --------------------------------------------------------
 
 --
@@ -116,6 +146,19 @@ CREATE TABLE `cv_skills` (
   `label` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `level_text` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+--
+-- Dumping data for table `cv_skills`
+--
+
+INSERT INTO `cv_skills` (`id`, `category`, `label`, `level_text`) VALUES
+(1, 'management', 'Gouvernance & Stratégie R&D', 'Expert'),
+(2, 'management', 'Performance & KPIs (OKRs)', 'Expert'),
+(3, 'management', 'International Management', 'Maitrisé'),
+(4, 'ops', 'Agile (SAFe 6 Agilist, ScrumMaster)', 'Expert'),
+(5, 'ops', 'Optimisation SDLC / Lean', 'Confirmé'),
+(6, 'tech', 'Architecture logicielle Cloud', 'Confirmé'),
+(7, 'tech', 'Analyse Business / AWS', 'Confirmé');
 
 -- --------------------------------------------------------
 
@@ -134,34 +177,6 @@ CREATE TABLE `documents` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `experiences`
---
-
-CREATE TABLE `experiences` (
-  `id` int UNSIGNED NOT NULL,
-  `company` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `title` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `location` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `date_start` date DEFAULT NULL,
-  `date_end` date DEFAULT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `category` enum('management','ops','tech') COLLATE utf8mb4_unicode_ci DEFAULT 'ops',
-  `is_highlight` tinyint(1) DEFAULT '0',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `experiences`
---
-
-INSERT INTO `experiences` (`id`, `company`, `title`, `location`, `date_start`, `date_end`, `description`, `category`, `is_highlight`, `created_at`) VALUES
-(1, 'SwissTiming (Swatch Group)', 'Software Architect & Deputy Project Manager', 'Corgémont', '2012-01-01', '2018-12-31', '• Architecture logicielle du système de scoring vidéo multisport pour les JO de Rio 2016.\n• Redesign complet du framework de développement SDK.\n• Gestion de projet et coordination d\'équipes pluridisciplinaires.', 'ops', 1, '2026-04-04 16:53:59'),
-(2, 'SolvAxis (ProConcept)', 'Lead Software Architect', 'Sonceboz', '2009-01-01', '2011-12-31', '• Change Management : Modernisation de l\'ERP vers une version Web (AJAX/JS).\n• Industrialisation : Mise en place des processus Agile/SCRUM et de Git.\n• Gestion des impacts technologiques et humains pour la base installée.', 'tech', 0, '2026-04-04 16:53:59'),
-(3, 'Membre de la Direction (Co-management)', 'COO / Software Manager', 'Courtelary', '2019-01-01', NULL, '• Management d\'équipes multi-sites internationales (22+ ingénieurs).\n• Pilotage de la stratégie Cloud et de la Roadmap R&D.\n• Alignement des départements Sales, Services et R&D.\n• Définition et suivi des KPIs et OKRs au niveau groupe.', 'management', 1, '2026-04-04 16:53:59');
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `profile_settings`
 --
 
@@ -175,6 +190,13 @@ CREATE TABLE `profile_settings` (
   `linkedin_url` varchar(255) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `photo_path` varchar(255) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+--
+-- Dumping data for table `profile_settings`
+--
+
+INSERT INTO `profile_settings` (`id`, `full_name`, `job_title`, `bio`, `email`, `phone`, `linkedin_url`, `photo_path`) VALUES
+(1, 'Nathanaël Schmied', 'COO | Software Manager | Transformation Leader', 'Manager opérationnel avec plus de 20 ans d’expérience dans l’industrie du logiciel. Expert dans la gestion d’organisations internationales complexes, je transforme les visions stratégiques en actions concrètes. Ma force réside dans l’alignement des départements, l’optimisation des processus et la conduite du changement pour garantir une rentabilité durable.', 'nschmied@gmail.com', NULL, NULL, '/public/assets/images/12089_Nathanael_Schmied.jpg');
 
 -- --------------------------------------------------------
 
@@ -215,32 +237,6 @@ CREATE TABLE `telemetry_sessions` (
   `duration_seconds` int DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
--- --------------------------------------------------------
-
---
--- Table structure for table `tracking_logs`
---
-
-CREATE TABLE `tracking_logs` (
-  `id` bigint UNSIGNED NOT NULL,
-  `app_id` int UNSIGNED NOT NULL,
-  `visited_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_agent` text
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Dumping data for table `tracking_logs`
---
-
-INSERT INTO `tracking_logs` (`id`, `app_id`, `visited_at`, `ip_address`, `user_agent`) VALUES
-(1, 1, '2026-04-04 17:10:13', '46.126.168.40', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'),
-(2, 1, '2026-04-04 17:10:56', '46.126.168.40', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'),
-(3, 2, '2026-04-04 17:11:10', '46.126.168.40', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'),
-(4, 1, '2026-04-04 18:27:50', '46.126.168.40', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36'),
-(5, 1, '2026-04-04 19:52:21', '46.126.168.40', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36'),
-(6, 1, '2026-04-04 19:54:01', '46.126.168.40', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36');
-
 --
 -- Indexes for dumped tables
 --
@@ -268,7 +264,8 @@ ALTER TABLE `cv_education`
 -- Indexes for table `cv_experiences`
 --
 ALTER TABLE `cv_experiences`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_display_order` (`display_order`);
 
 --
 -- Indexes for table `cv_languages`
@@ -289,12 +286,6 @@ ALTER TABLE `documents`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `experiences`
---
-ALTER TABLE `experiences`
-  ADD PRIMARY KEY (`id`);
-
---
 -- Indexes for table `profile_settings`
 --
 ALTER TABLE `profile_settings`
@@ -311,20 +302,14 @@ ALTER TABLE `rel_app_doc`
 -- Indexes for table `telemetry_events`
 --
 ALTER TABLE `telemetry_events`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_session` (`session_id`);
 
 --
 -- Indexes for table `telemetry_sessions`
 --
 ALTER TABLE `telemetry_sessions`
   ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `tracking_logs`
---
-ALTER TABLE `tracking_logs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_track_app` (`app_id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -346,37 +331,31 @@ ALTER TABLE `crm_events`
 -- AUTO_INCREMENT for table `cv_education`
 --
 ALTER TABLE `cv_education`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `cv_experiences`
 --
 ALTER TABLE `cv_experiences`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `cv_languages`
 --
 ALTER TABLE `cv_languages`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `cv_skills`
 --
 ALTER TABLE `cv_skills`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `documents`
 --
 ALTER TABLE `documents`
   MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `experiences`
---
-ALTER TABLE `experiences`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `telemetry_events`
@@ -391,12 +370,6 @@ ALTER TABLE `telemetry_sessions`
   MODIFY `id` int NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `tracking_logs`
---
-ALTER TABLE `tracking_logs`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
-
---
 -- Constraints for dumped tables
 --
 
@@ -408,10 +381,10 @@ ALTER TABLE `rel_app_doc`
   ADD CONSTRAINT `fk_doc` FOREIGN KEY (`doc_id`) REFERENCES `documents` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `tracking_logs`
+-- Constraints for table `telemetry_events`
 --
-ALTER TABLE `tracking_logs`
-  ADD CONSTRAINT `fk_track_app` FOREIGN KEY (`app_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE;
+ALTER TABLE `telemetry_events`
+  ADD CONSTRAINT `fk_session` FOREIGN KEY (`session_id`) REFERENCES `telemetry_sessions` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
