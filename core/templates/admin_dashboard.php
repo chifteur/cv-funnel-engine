@@ -46,9 +46,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // --- 2. RÉCUPÉRATION DES DONNÉES ---
 $profile = $db->query("SELECT * FROM profile_settings WHERE id=1")->fetch();
-$apps = $db->query("SELECT a.*, (SELECT COUNT(*) FROM tracking_logs WHERE app_id = a.id) as visits FROM applications a ORDER BY created_at DESC")->fetchAll();
-$exps = $db->query("SELECT * FROM cv_experiences ORDER BY id DESC")->fetchAll();
-$telemetry = $db->query("
+// Candidatures avec stats de sessions réelles
+$apps = $db->query("
+    SELECT a.*, COUNT(s.id) as session_count 
+    FROM applications a 
+    LEFT JOIN telemetry_sessions s ON a.id = s.app_id 
+    GROUP BY a.id ORDER BY a.created_at DESC
+")->fetchAll();
+
+// Éléments du CV pour l'éditeur
+$cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY id DESC")->fetchAll();
+$cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll();
+$cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll();
+
+// Télémétrie : On récupère les 20 derniers événements avec le nom de la boîte
+$telemetry_feed = $db->query("
     SELECT e.*, a.company_name 
     FROM telemetry_events e 
     JOIN telemetry_sessions s ON e.session_id = s.id 
@@ -132,37 +144,64 @@ $telemetry = $db->query("
                     <div class="grid grid-cols-2 gap-6">
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase">Nom Complet</label>
-                            <input type="text" name="full_name" value="<?= htmlspecialchars($profile['full_name']) ?>" class="w-full mt-1 border-b p-2 focus:border-blue-600 outline-none">
+                            <input type="text" name="full_name" value="<?= htmlspecialchars($profile['full_name'] ?? '') ?>" class="w-full mt-1 border-b p-2 focus:border-blue-600 outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase">Titre Professionnel</label>
-                            <input type="text" name="job_title" value="<?= htmlspecialchars($profile['job_title']) ?>" class="w-full mt-1 border-b p-2 focus:border-blue-600 outline-none">
+                            <input type="text" name="job_title" value="<?= htmlspecialchars($profile['job_title'] ?? '') ?>" class="w-full mt-1 border-b p-2 focus:border-blue-600 outline-none">
                         </div>
                         <div class="col-span-2">
                             <label class="block text-xs font-bold text-slate-400 uppercase">Bio / Executive Summary</label>
-                            <textarea name="bio" rows="3" class="w-full mt-1 border p-3 rounded-lg text-sm"><?= htmlspecialchars($profile['bio']) ?></textarea>
+                            <textarea name="bio" rows="3" class="w-full mt-1 border p-3 rounded-lg text-sm"><?= htmlspecialchars($profile['bio'] ?? '') ?></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase">Email de contact</label>
+                            <input type="email" name="email" value="<?= htmlspecialchars($profile['email'] ?? '') ?>" class="w-full mt-1 border-b p-2 focus:border-blue-600 outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase">Photo (chemin FTP)</label>
-                            <input type="text" name="photo_path" value="<?= htmlspecialchars($profile['photo_path']) ?>" class="w-full mt-1 border-b p-2 text-xs font-mono">
+                            <input type="text" name="photo_path" value="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>" class="w-full mt-1 border-b p-2 text-xs font-mono">
                         </div>
-                        <div class="flex items-end justify-end">
-                            <button type="submit" class="bg-slate-900 text-white px-8 py-2 rounded-full font-bold">Sauvegarder mon profil</button>
+                        <div class="col-span-2 text-right">
+                            <button type="submit" class="bg-slate-900 text-white px-8 py-2 rounded-full font-bold hover:bg-blue-600 transition">Sauvegarder mon profil</button>
                         </div>
                     </div>
                 </form>
 
                 <div class="space-y-4">
-                    <h3 class="text-lg font-bold">Parcours Professionnel</h3>
-                    <?php foreach ($exps as $exp): ?>
-                        <div class="bg-white p-4 rounded-lg border flex justify-between items-center">
-                            <div>
-                                <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded uppercase"><?= $exp['category'] ?></span>
-                                <span class="font-bold ml-2"><?= $exp['role'] ?> @ <?= $exp['company'] ?></span>
-                            </div>
-                            <button class="text-slate-300 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
-                        </div>
-                    <?php endforeach; ?>
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold">Parcours Professionnel</h3>
+                        <button @click="openCrm = 'new_exp'" class="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg font-bold hover:bg-blue-100">+ Ajouter</button>
+                    </div>
+
+                    <div class="grid gap-3">
+                        <?php if (!empty($exps)): ?>
+                            <?php foreach ($exps as $exp): ?>
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 flex justify-between items-center group">
+                                    <div class="flex items-center gap-4">
+                                        <span class="text-[10px] font-bold px-2 py-1 bg-slate-100 rounded uppercase text-slate-500">
+                                            <?= htmlspecialchars($exp['category'] ?? 'ops') ?>
+                                        </span>
+                                        <div>
+                                            <h4 class="font-bold text-slate-800"><?= htmlspecialchars($exp['role'] ?? $exp['title']) ?></h4>
+                                            <p class="text-xs text-slate-400"><?= htmlspecialchars($exp['company']) ?> | <?= htmlspecialchars($exp['period'] ?? '') ?></p>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <form method="POST" onsubmit="return confirm('Supprimer cette expérience ?');">
+                                            <input type="hidden" name="action" value="delete_exp">
+                                            <input type="hidden" name="exp_id" value="<?= $exp['id'] ?>">
+                                            <button type="submit" class="text-slate-300 hover:text-red-500 transition">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <p class="text-sm text-slate-400 italic">Aucune expérience enregistrée.</p>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -175,7 +214,7 @@ $telemetry = $db->query("
                     <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-xl overflow-hidden">
                         <h4 class="text-xs font-bold uppercase text-slate-500 mb-4">Flux en temps réel</h4>
                         <div class="space-y-4 text-[10px] font-mono opacity-80 overflow-y-auto max-h-[400px]">
-                            <?php foreach ($telemetry as $log): ?>
+                            <?php foreach ($telemetry_feed as $log): ?>
                                 <div class="border-b border-slate-800 pb-2">
                                     <span class="text-blue-400">[<?= substr($log['created_at'], 11, 5) ?>]</span> 
                                     <span class="text-slate-200"><?= htmlspecialchars($log['company_name']) ?> :</span> 
