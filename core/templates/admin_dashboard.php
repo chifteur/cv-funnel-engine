@@ -23,9 +23,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // CANDIDATURES /GO/
         if ($action === 'add_app') {
-            $stmt = $db->prepare("INSERT INTO applications (slug, company_name, job_title, custom_pitch, default_lens, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['custom_pitch'], $_POST['default_lens']]);
-            $message = "🚀 Nouveau lien généré.";
+            $stmt = $db->prepare("INSERT INTO applications (slug, company_name, job_title, job_url, custom_pitch, default_lens, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
+            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['default_lens'], $_POST['status'] ?? 'sent']);
+            $message = "🚀 Candidature créée.";
+        }
+        if ($action === 'update_app') {
+            $stmt = $db->prepare("UPDATE applications SET slug=?, company_name=?, job_title=?, job_url=?, custom_pitch=?, default_lens=?, status=? WHERE id=?");
+            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['default_lens'], $_POST['status'], $_POST['id']]);
+            $message = "✅ Candidature mise à jour.";
+        }
+        if ($action === 'delete_app') {
+            $stmt = $db->prepare("DELETE FROM applications WHERE id = ?");
+            $stmt->execute([$_POST['id']]);
+            $message = "✅ Candidature supprimée.";
         }
 
         // --- CRUD CV : EXPÉRIENCES ---
@@ -145,6 +155,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                 editItem: {},
                 draggedExpId: null,
                 allExps: <?= json_encode($cv_exps) ?>,
+                allApps: <?= json_encode($apps) ?>,
                 prepEdit(type, data = {}) {
                     this.editItem = { type: type, ...data };
                 },
@@ -196,22 +207,42 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
             <div x-show="tab === 'apps'" class="space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-3xl font-black uppercase">Postulations</h2>
-                    <button @click="openModal = 'new_app'" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">+ Nouveau Lien</button>
+                    <button @click="editItem = {type: 'app', id: '', slug: '', company_name: '', job_title: '', job_url: '', custom_pitch: '', default_lens: 'ops', status: 'sent'}" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">+ Nouvelle Candidature</button>
                 </div>
                 <div class="grid gap-4">
-                    <?php foreach ($apps as $app): ?>
-                    <div class="bg-white p-6 rounded-xl border flex justify-between items-center shadow-sm">
-                        <div>
-                            <h3 class="font-black text-lg"><?= htmlspecialchars($app['company_name']) ?></h3>
-                            <p class="text-slate-400 text-sm"><?= htmlspecialchars($app['job_title']) ?></p>
-                            <a href="/go/<?= $app['slug'] ?>" target="_blank" class="text-blue-500 font-mono text-xs">/go/<?= $app['slug'] ?></a>
+                    <template x-for="app in allApps" :key="app.id">
+                        <div class="bg-white p-6 rounded-xl border flex justify-between items-center shadow-sm hover:border-blue-300 transition">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="font-black text-lg" x-text="app.company_name"></h3>
+                                    <span class="text-[9px] font-bold px-2 py-1 rounded uppercase" 
+                                        :class="{
+                                            'bg-green-100 text-green-700': app.status === 'accepted',
+                                            'bg-blue-100 text-blue-700': app.status === 'interview',
+                                            'bg-red-100 text-red-700': app.status === 'rejected',
+                                            'bg-slate-100 text-slate-700': app.status === 'sent'
+                                        }"
+                                        x-text="app.status.toUpperCase()"></span>
+                                </div>
+                                <p class="text-slate-400 text-sm" x-text="app.job_title"></p>
+                                <a :href="'/go/' + app.slug" target="_blank" class="text-blue-500 font-mono text-xs" x-text="'/go/' + app.slug"></a>
+                            </div>
+                            <div class="text-right flex items-center gap-4">
+                                <div>
+                                    <span class="text-2xl font-black text-slate-800" x-text="app.visits ?? 0"></span>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="editItem = {type: 'app', ...app}" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <form method="POST" style="display:inline">
+                                        <input type="hidden" name="action" value="delete_app">
+                                        <input type="hidden" name="id" :value="app.id">
+                                        <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <span class="text-2xl font-black text-slate-800"><?= $app['visits'] ?></span>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</p>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
+                    </template>
                 </div>
             </div>
 
@@ -474,6 +505,30 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <input type="text" name="institution" x-model="editItem.institution" placeholder="École" class="border p-3 rounded-xl w-full">
                     <input type="text" name="year" x-model="editItem.year" placeholder="Année" class="border p-3 rounded-xl w-full">
                     <input type="hidden" name="icon" x-model="editItem.icon" value="">
+                </div>
+
+                <!-- Application -->
+                <div x-show="editItem && editItem.type === 'app'" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="company_name" x-model="editItem.company_name" placeholder="Entreprise" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                        <input type="text" name="slug" x-model="editItem.slug" placeholder="Slug (/go/...)" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                    </div>
+                    <input type="text" name="job_title" x-model="editItem.job_title" placeholder="Poste" class="border p-3 rounded-xl w-full">
+                    <input type="url" name="job_url" x-model="editItem.job_url" placeholder="URL de l'offre (optionnel)" class="border p-3 rounded-xl w-full">
+                    <textarea name="custom_pitch" x-model="editItem.custom_pitch" placeholder="Pitch personnalisé..." rows="4" class="border p-3 rounded-xl w-full text-sm"></textarea>
+                    <div class="grid grid-cols-2 gap-4">
+                        <select name="default_lens" x-model="editItem.default_lens" class="border p-3 rounded-xl w-full bg-slate-50">
+                            <option value="ops">Ops</option>
+                            <option value="management">Management</option>
+                            <option value="tech">Tech</option>
+                        </select>
+                        <select name="status" x-model="editItem.status" class="border p-3 rounded-xl w-full bg-slate-50">
+                            <option value="sent">Envoyé</option>
+                            <option value="interview">Entretien</option>
+                            <option value="rejected">Rejeté</option>
+                            <option value="accepted">Accepté</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="pt-6">
