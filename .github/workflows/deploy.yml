@@ -27,6 +27,7 @@ jobs:
             --exclude='.git/'
             --exclude='.github/'
             --exclude='aurevoir2026/'
+            --exclude='public/assets/images/'
             --exclude='core/config.php'
         path: ./                  # Dossier source (votre dépôt GitHub)
         remote_path: /home/manganese/manganese.ch/ # CHEMIN ABSOLU REQUIS
