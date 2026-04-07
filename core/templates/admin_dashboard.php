@@ -44,6 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$_POST['id']]);
             $message = "✅ Expérience supprimée.";
         }
+        if ($action === 'reorder_exp') {
+            // Reçoit un JSON array: [{id: 1, order: 0}, {id: 2, order: 1}, ...]
+            $orders = json_decode($_POST['orders'] ?? '[]', true);
+            foreach ($orders as $item) {
+                $stmt = $db->prepare("UPDATE cv_experiences SET display_order=? WHERE id=?");
+                $stmt->execute([$item['order'], $item['id']]);
+            }
+            $message = "✅ Ordre mis à jour.";
+        }
 
         // --- CRUD CV : SKILLS ---
         if ($action === 'add_skill') {
@@ -111,7 +120,7 @@ $telemetry_logs = $db->query("
 ")->fetchAll();
 
 // --- 3. DONNÉES CV EDITOR (fusionné) ---
-$cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY id DESC")->fetchAll();
+$cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY display_order ASC, id DESC")->fetchAll();
 $cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll();
 $cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll();
 $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
@@ -126,15 +135,40 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-slate-50 font-sans text-slate-900" x-data="{ 
-    tab: 'apps',
-    section: 'profile',
-    openModal: null, 
-    editItem: {},
-    prepEdit(type, data = {}) {
-        this.editItem = { type: type, ...data };
-    }
-}">
+<body class="bg-slate-50 font-sans text-slate-900" x-data="appData()">
+    <script>
+        function appData() {
+            return {
+                tab: 'apps',
+                section: 'profile',
+                openModal: null, 
+                editItem: {},
+                draggedExpId: null,
+                allExps: <?= json_encode($cv_exps) ?>,
+                prepEdit(type, data = {}) {
+                    this.editItem = { type: type, ...data };
+                },
+                saveDragOrder() {
+                    const orders = this.allExps.map((e, idx) => ({id: e.id, order: idx}));
+                    const formData = new FormData();
+                    formData.append('action', 'reorder_exp');
+                    formData.append('orders', JSON.stringify(orders));
+                    fetch(window.location.href, { method: 'POST', body: formData })
+                        .then(() => {
+                            alert('✅ Ordre enregistré !');
+                            setTimeout(() => location.reload(), 500);
+                        })
+                        .catch(e => alert('❌ Erreur: ' + e));
+                },
+                moveExp(fromIdx, toIdx) {
+                    if (fromIdx === toIdx) return;
+                    const arr = [...this.allExps];
+                    arr.splice(toIdx, 0, arr.splice(fromIdx, 1)[0]);
+                    this.allExps = arr;
+                }
+            }
+        }
+    </script>
     <div class="flex min-h-screen">
         <aside class="w-64 bg-slate-900 text-white p-6 sticky top-0 h-screen">
             <div class="text-2xl font-black mb-12 tracking-tighter text-blue-500 italic">MANGANESE<span class="text-white">OS</span></div>
@@ -216,23 +250,35 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <!-- EXPERIENCES -->
                     <div x-show="section === 'experiences'" class="space-y-4">
                         <div class="grid gap-3">
-                            <?php foreach($cv_exps as $e): ?>
-                            <div class="bg-white p-4 rounded-xl border flex justify-between items-center group shadow-sm">
-                                <div class="flex items-center">
-                                    <span class="text-[9px] font-black px-2 py-1 bg-slate-100 rounded uppercase text-slate-400"><?= $e['category'] ?></span>
-                                    <h4 class="font-bold ml-3"><?= htmlspecialchars($e['role']) ?> @ <?= htmlspecialchars($e['company']) ?></h4>
+                            <template x-for="(exp, idx) in allExps" :key="exp.id">
+                                <div 
+                                    draggable="true"
+                                    @dragstart="draggedExpId = idx"
+                                    @dragover.prevent="(e) => e.dataTransfer.dropEffect = 'move'"
+                                    @drop.prevent="moveExp(draggedExpId, idx); draggedExpId = null"
+                                    @dragend="draggedExpId = null"
+                                    :class="draggedExpId === idx ? 'opacity-50 bg-blue-50' : ''"
+                                    class="bg-white p-4 rounded-xl border flex justify-between items-center group shadow-sm cursor-grab hover:shadow-md hover:border-blue-300 active:cursor-grabbing transition">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fa-solid fa-grip text-slate-300 text-lg"></i>
+                                        <div class="flex items-center">
+                                            <span class="text-[9px] font-black px-2 py-1 bg-slate-100 rounded uppercase text-slate-400" x-text="exp.category"></span>
+                                            <h4 class="font-bold ml-3" x-text="`${exp.role} @ ${exp.company}`"></h4>                                            
+                                        </div>
+                                        <span class="text-sm font-bold text-slate-400" x-text="exp.period"></span>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button @click="prepEdit('exp', exp)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
+                                        <form method="POST" style="display:inline">
+                                            <input type="hidden" name="action" value="delete_exp">
+                                            <input type="hidden" name="id" :value="exp.id">
+                                            <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
+                                        </form>
+                                    </div>
                                 </div>
-                                <div class="flex gap-2">
-                                    <button @click="prepEdit('exp', <?= htmlspecialchars(json_encode($e), ENT_QUOTES, 'UTF-8') ?>)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
-                                    <form method="POST" style="display:inline">
-                                        <input type="hidden" name="action" value="delete_exp">
-                                        <input type="hidden" name="id" value="<?= $e['id'] ?>">
-                                        <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
-                                    </form>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
+                            </template>
                         </div>
+                        <button @click="saveDragOrder()" x-show="allExps.length > 0" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600 transition mb-4">💾 Enregistrer l'ordre</button>
                         <button @click="prepEdit('exp', {id:'', company:'', role:'', location:'', period:'', content:'', category:'ops'})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Experience</button>
                     </div>
 

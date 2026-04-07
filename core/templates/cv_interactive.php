@@ -8,7 +8,7 @@ $db = get_db_connection();
 
 // On charge tout depuis la DB
 $profile = $db->query("SELECT * FROM profile_settings WHERE id = 1")->fetch();
-$cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY id DESC")->fetchAll();
+$cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY display_order ASC, id DESC")->fetchAll();
 $cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll();
 $cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll();
 
