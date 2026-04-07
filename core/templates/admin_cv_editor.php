@@ -47,7 +47,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <h4 class="font-bold ml-3"><?= htmlspecialchars($e['role']) ?> @ <?= htmlspecialchars($e['company']) ?></h4>
                 </div>
                 <div class="flex gap-2">
-                    <button @click="prepEdit('exp', <?= htmlspecialchars(json_encode($e), ENT_QUOTES, 'UTF-8') ?>)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button @click="$parent.prepEdit('exp', <?= htmlspecialchars(json_encode($e), ENT_QUOTES, 'UTF-8') ?>)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
                     <form method="POST">
                         <input type="hidden" name="action" value="delete_exp"><input type="hidden" name="id" value="<?= $e['id'] ?>">
                         <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
@@ -56,7 +56,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
             </div>
             <?php endforeach; ?>
         </div>
-        <button @click="prepEdit('exp', {id:'', company:'', role:'', location:'', period:'', content:'', category:'ops'})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Experience</button>
+        <button @click="$parent.prepEdit('exp', {id:'', company:'', role:'', location:'', period:'', content:'', category:'ops'})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Experience</button>
     </div>
 
     <div x-show="section === 'skills'" class="grid grid-cols-2 gap-8">
@@ -66,12 +66,12 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                 <div class="bg-white p-2 border rounded flex justify-between items-center">
                     <span class="text-sm font-bold"><?= htmlspecialchars($s['label']) ?></span>
                     <div class="flex gap-2">
-                        <button @click="prepEdit('skill', <?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>)" class="text-blue-400"><i class="fa-solid fa-pen"></i></button>
+                        <button @click="$parent.prepEdit('skill', <?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>)" class="text-blue-400"><i class="fa-solid fa-pen"></i></button>
                         <form method="POST"><input type="hidden" name="action" value="delete_skill"><input type="hidden" name="id" value="<?= $s['id'] ?>"><button type="submit" class="text-red-200">✕</button></form>
                     </div>
                 </div>
             <?php endforeach; ?>
-            <button @click="prepEdit('skill', {id:'', label:'', level_text:'', category:'management'})" class="w-full border border-dashed p-2 text-xs text-slate-400 font-bold hover:text-blue-600">+ Ajouter Skill</button>
+            <button @click="$parent.prepEdit('skill', {id:'', label:'', level_text:'', category:'management'})" class="w-full border border-dashed p-2 text-xs text-slate-400 font-bold hover:text-blue-600">+ Ajouter Skill</button>
         </div>
         <div class="space-y-4">
             <h3 class="font-bold text-slate-400 uppercase text-xs">Langues</h3>
@@ -84,56 +84,56 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
         </div>
     </div>
 
-    <template x-if="editItem">
+    <template x-if="$parent.editItem">
         <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div @click.away="editItem = null" class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div @click.away="$parent.editItem = null" class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-black uppercase tracking-tighter" x-text="editItem.id ? 'Modifier ' + editItem.type : 'Ajouter ' + editItem.type"></h3>
-                    <button @click="editItem = null" class="text-slate-300 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                    <h3 class="text-2xl font-black uppercase tracking-tighter" x-text="$parent.editItem.id ? 'Modifier ' + $parent.editItem.type : 'Ajouter ' + $parent.editItem.type"></h3>
+                    <button @click="$parent.editItem = null" class="text-slate-300 hover:text-slate-600 text-2xl font-bold">&times;</button>
                 </div>
 
                 <form method="POST" class="space-y-4">
-                    <input type="hidden" name="action" :value="editItem.id ? 'update_' + editItem.type : 'add_' + editItem.type">
-                    <input type="hidden" name="id" :value="editItem.id">
+                    <input type="hidden" name="action" :value="$parent.editItem.id ? 'update_' + $parent.editItem.type : 'add_' + $parent.editItem.type">
+                    <input type="hidden" name="id" :value="$parent.editItem.id">
 
-                    <template x-if="editItem.type === 'exp'">
+                    <template x-if="$parent.editItem.type === 'exp'">
                         <div class="space-y-4">
                             <div class="grid grid-cols-2 gap-4">
-                                <input type="text" name="company" x-model="editItem.company" placeholder="Entreprise" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
-                                <input type="text" name="role" x-model="editItem.role" placeholder="Poste" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                                <input type="text" name="company" x-model="$parent.editItem.company" placeholder="Entreprise" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                                <input type="text" name="role" x-model="$parent.editItem.role" placeholder="Poste" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
                             </div>
                             <div class="grid grid-cols-2 gap-4">
-                                <input type="text" name="location" x-model="editItem.location" placeholder="Lieu" class="border p-3 rounded-xl w-full">
-                                <input type="text" name="period" x-model="editItem.period" placeholder="Période" class="border p-3 rounded-xl w-full">
+                                <input type="text" name="location" x-model="$parent.editItem.location" placeholder="Lieu" class="border p-3 rounded-xl w-full">
+                                <input type="text" name="period" x-model="$parent.editItem.period" placeholder="Période" class="border p-3 rounded-xl w-full">
                             </div>
-                            <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
+                            <select name="category" x-model="$parent.editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
                                 <option value="ops">Opérations</option><option value="management">Management</option><option value="tech">Technique</option>
                             </select>
-                            <textarea name="content" x-model="editItem.content" placeholder="Description (une puce par ligne)..." rows="6" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
+                            <textarea name="content" x-model="$parent.editItem.content" placeholder="Description (une puce par ligne)..." rows="6" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
                         </div>
                     </template>
 
-                    <template x-if="editItem.type === 'skill'">
+                    <template x-if="$parent.editItem.type === 'skill'">
                         <div class="space-y-4">
-                            <input type="text" name="label" x-model="editItem.label" placeholder="Compétence" class="border p-3 rounded-xl w-full">
-                            <input type="text" name="level_text" x-model="editItem.level_text" placeholder="Niveau" class="border p-3 rounded-xl w-full">
-                            <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
+                            <input type="text" name="label" x-model="$parent.editItem.label" placeholder="Compétence" class="border p-3 rounded-xl w-full">
+                            <input type="text" name="level_text" x-model="$parent.editItem.level_text" placeholder="Niveau" class="border p-3 rounded-xl w-full">
+                            <select name="category" x-model="$parent.editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
                                 <option value="management">Management</option><option value="ops">Ops</option><option value="tech">Tech</option>
                             </select>
                         </div>
                     </template>
 
-                    <template x-if="editItem.type === 'edu'">
+                    <template x-if="$parent.editItem.type === 'edu'">
                         <div class="space-y-4">
-                            <input type="text" name="degree" x-model="editItem.degree" placeholder="Diplôme" class="border p-3 rounded-xl w-full">
-                            <input type="text" name="institution" x-model="editItem.institution" placeholder="École" class="border p-3 rounded-xl w-full">
-                            <input type="text" name="year" x-model="editItem.year" placeholder="Année" class="border p-3 rounded-xl w-full">
-                            <input type="hidden" name="icon" x-model="editItem.icon">
+                            <input type="text" name="degree" x-model="$parent.editItem.degree" placeholder="Diplôme" class="border p-3 rounded-xl w-full">
+                            <input type="text" name="institution" x-model="$parent.editItem.institution" placeholder="École" class="border p-3 rounded-xl w-full">
+                            <input type="text" name="year" x-model="$parent.editItem.year" placeholder="Année" class="border p-3 rounded-xl w-full">
+                            <input type="hidden" name="icon" x-model="$parent.editItem.icon">
                         </div>
                     </template>
 
                     <div class="pt-6">
-                        <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-full font-bold shadow-lg hover:bg-blue-700 transition" x-text="editItem.id ? 'Appliquer les modifications' : 'Créer'"></button>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-full font-bold shadow-lg hover:bg-blue-700 transition" x-text="$parent.editItem.id ? 'Appliquer les modifications' : 'Créer'"></button>
                     </div>
                 </form>
             </div>
