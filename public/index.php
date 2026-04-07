@@ -1,12 +1,13 @@
 <?php
 /**
- * Front Controller
+ * Front Controller - Manganese OS
  */
 require_once __DIR__ . '/../core/config.php';
 require_once __DIR__ . '/../core/router.php';
 
-// On récupère l'URI complète
-$request = $_SERVER['REQUEST_URI'];
+// Optionnel : Debugging PHP 8.4 pour tes premiers tests
+// ini_set('display_errors', 1); 
+// error_reporting(E_ALL);
 
-// On lance la machine
+$request = $_SERVER['REQUEST_URI'];
 dispatch($request);
