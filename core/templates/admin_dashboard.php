@@ -130,7 +130,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
     tab: 'apps',
     section: 'profile',
     openModal: null, 
-    editItem: null,
+    editItem: {},
     prepEdit(type, data = {}) {
         this.editItem = { type: type, ...data };
     }
@@ -348,7 +348,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <div class="space-y-2">
                         <button @click="console.log('Alpine working'); alert('Alpine working ✓')" class="w-full bg-green-600 text-white py-2 rounded font-bold">Test Alpine.js</button>
                         <button @click="prepEdit('test', {id: 'DEBUG', label: 'Test Item', category: 'test'}); console.log('Modal should open'); console.log(editItem);" class="w-full bg-blue-600 text-white py-2 rounded font-bold">Test prepEdit()</button>
-                        <button @click="editItem = null; console.log('Modal closed')" class="w-full bg-gray-600 text-white py-2 rounded font-bold">Close Modal</button>
+                        <button @click="editItem = {}; console.log('Modal closed')" class="w-full bg-gray-600 text-white py-2 rounded font-bold">Close Modal</button>
                     </div>
                 </div>
             </div>
@@ -382,11 +382,11 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
     </template>
 
     <!-- MODAL D'ÉDITION CV (fusionné) -->
-    <div x-show="editItem" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4" style="display: none;">
-        <div @click.away="editItem = null" class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+    <div x-show="editItem && editItem.type" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4" style="display: none;">
+        <div @click.away="editItem = {}" class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-2xl font-black uppercase tracking-tighter" x-text="editItem ? (editItem.id ? 'Modifier ' + editItem.type : 'Ajouter ' + editItem.type) : ''"></h3>
-                <button @click="editItem = null" class="text-slate-300 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                <button @click="editItem = {}" class="text-slate-300 hover:text-slate-600 text-2xl font-bold">&times;</button>
             </div>
 
             <form method="POST" class="space-y-4">
