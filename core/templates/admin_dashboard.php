@@ -6,16 +6,18 @@
 
 $db = get_db_connection();
 $message = "";
+$debug_action = ""; // DEBUG LOG
 
 // --- 1. TRAITEMENT DE TOUTES LES ACTIONS (POST) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
+    $debug_action = $action;
 
     try {
         // PROFIL MASTER
         if ($action === 'update_profile') {
             $stmt = $db->prepare("UPDATE profile_settings SET full_name=?, job_title=?, bio=?, email=?, phone=?, linkedin_url=?, photo_path=? WHERE id=1");
-            $stmt->execute([$_POST['full_name'], $_POST['job_title'], $_POST['bio'], $_POST['email'], $_POST['phone'], $_POST['linkedin_url'], $_POST['photo_path']]);
+            $stmt->execute([$_POST['full_name'], $_POST['job_title'], $_POST['bio'], $_POST['email'] ?? '', $_POST['phone'] ?? '', $_POST['linkedin_url'] ?? '', $_POST['photo_path'] ?? '']);
             $message = "✅ Profil Master mis à jour.";
         }
 
@@ -30,35 +32,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'add_exp') {
             $stmt = $db->prepare("INSERT INTO cv_experiences (company, role, location, period, content, category) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$_POST['company'], $_POST['role'], $_POST['location'], $_POST['period'], $_POST['content'], $_POST['category']]);
+            $message = "✅ Expérience ajoutée.";
         }
         if ($action === 'update_exp') {
             $stmt = $db->prepare("UPDATE cv_experiences SET company=?, role=?, location=?, period=?, content=?, category=? WHERE id=?");
             $stmt->execute([$_POST['company'], $_POST['role'], $_POST['location'], $_POST['period'], $_POST['content'], $_POST['category'], $_POST['id']]);
+            $message = "✅ Expérience mise à jour.";
         }
         if ($action === 'delete_exp') {
             $stmt = $db->prepare("DELETE FROM cv_experiences WHERE id = ?");
             $stmt->execute([$_POST['id']]);
+            $message = "✅ Expérience supprimée.";
         }
 
         // --- CRUD CV : SKILLS ---
         if ($action === 'add_skill') {
             $stmt = $db->prepare("INSERT INTO cv_skills (category, label, level_text) VALUES (?, ?, ?)");
             $stmt->execute([$_POST['category'], $_POST['label'], $_POST['level_text']]);
+            $message = "✅ Skill ajoutée.";
         }
         if ($action === 'update_skill') {
             $stmt = $db->prepare("UPDATE cv_skills SET category=?, label=?, level_text=? WHERE id=?");
             $stmt->execute([$_POST['category'], $_POST['label'], $_POST['level_text'], $_POST['id']]);
+            $message = "✅ Skill mise à jour.";
         }
         if ($action === 'delete_skill') {
             $stmt = $db->prepare("DELETE FROM cv_skills WHERE id = ?");
             $stmt->execute([$_POST['id']]);
+            $message = "✅ Skill supprimée.";
         }
 
         // --- CRUD CV : EDUCATION ---
         if ($action === 'add_edu') {
             $stmt = $db->prepare("INSERT INTO cv_education (degree, institution, year, icon) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$_POST['degree'], $_POST['institution'], $_POST['year'], $_POST['icon']]);
+            $stmt->execute([$_POST['degree'], $_POST['institution'], $_POST['year'], $_POST['icon'] ?? '']);
+            $message = "✅ Formation ajoutée.";
         }
+        if ($action === 'update_edu') {
+            $stmt = $db->prepare("UPDATE cv_education SET degree=?, institution=?, year=?, icon=? WHERE id=?");
+            $stmt->execute([$_POST['degree'], $_POST['institution'], $_POST['year'], $_POST['icon'] ?? '', $_POST['id']]);
+            $message = "✅ Formation mise à jour.";
+        }
+        if ($action === 'delete_edu') {
+            $stmt = $db->prepare("DELETE FROM cv_education WHERE id = ?");
+            $stmt->execute([$_POST['id']]);
+            $message = "✅ Formation supprimée.";
+        }
+
+    } catch (Exception $e) {
+        $message = "❌ Erreur SQL : " . $e->getMessage();
+        error_log("MANGANESE DEBUG - Action: $action - Error: " . $e->getMessage());
+    }
+
+    try {    
         if ($action === 'update_edu') {
             $stmt = $db->prepare("UPDATE cv_education SET degree=?, institution=?, year=?, icon=? WHERE id=?");
             $stmt->execute([$_POST['degree'], $_POST['institution'], $_POST['year'], $_POST['icon'], $_POST['id']]);
@@ -121,6 +147,9 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                 </button>
                 <button @click="tab = 'stats'" :class="tab === 'stats' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-bolt w-5"></i> Télémétrie
+                </button>
+                <button @click="tab = 'debug'" :class="tab === 'debug' ? 'bg-red-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
+                    <i class="fa-solid fa-bug w-5"></i> Debug
                 </button>
             </nav>
         </aside>
@@ -279,6 +308,50 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <?php endforeach; ?>
                 </div>
             </div>
+
+            <!-- DEBUG TAB -->
+            <div x-show="tab === 'debug'" class="space-y-6">
+                <h2 class="text-3xl font-black uppercase mb-6">🔧 Debug Console</h2>
+                
+                <!-- Last POST -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="text-xl font-bold mb-4">Last POST Request</h3>
+                    <div class="bg-slate-900 text-green-400 p-4 rounded font-mono text-xs overflow-auto max-h-96">
+                        <?php if ($_SERVER['REQUEST_METHOD'] === 'POST'): ?>
+                            <div class="text-yellow-400"><strong>✓ POST Received</strong></div>
+                            <div>Action: <span class="text-blue-400"><?= htmlspecialchars($_POST['action'] ?? 'N/A') ?></span></div>
+                            <div>Message: <span class="text-green-300"><?= htmlspecialchars($message) ?></span></div>
+                            <div class="mt-3 border-t border-slate-700 pt-3">
+                                <strong>POST Data:</strong>
+                                <pre><?= htmlspecialchars(json_encode($_POST, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
+                            </div>
+                        <?php else: ?>
+                            <div class="text-gray-400">No POST request yet...</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Alpine.js State -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="text-xl font-bold mb-4">Alpine.js State</h3>
+                    <div class="bg-slate-900 text-blue-400 p-4 rounded font-mono text-xs">
+                        <div>Tab: <span class="text-green-400" x-text="tab"></span></div>
+                        <div>Section: <span class="text-green-400" x-text="section"></span></div>
+                        <div>EditItem: <span class="text-green-400" x-text="JSON.stringify(editItem, null, 2)"></span></div>
+                        <div>OpenModal: <span class="text-green-400" x-text="openModal"></span></div>
+                    </div>
+                </div>
+
+                <!-- Quick Test -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="text-xl font-bold mb-4">Quick Test Functions</h3>
+                    <div class="space-y-2">
+                        <button @click="console.log('Alpine working'); alert('Alpine working ✓')" class="w-full bg-green-600 text-white py-2 rounded font-bold">Test Alpine.js</button>
+                        <button @click="prepEdit('test', {id: 'DEBUG', label: 'Test Item', category: 'test'}); console.log('Modal should open'); console.log(editItem);" class="w-full bg-blue-600 text-white py-2 rounded font-bold">Test prepEdit()</button>
+                        <button @click="editItem = null; console.log('Modal closed')" class="w-full bg-gray-600 text-white py-2 rounded font-bold">Close Modal</button>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -309,67 +382,59 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
     </template>
 
     <!-- MODAL D'ÉDITION CV (fusionné) -->
-    <template x-if="editItem">
-        <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div @click.away="editItem = null" class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-black uppercase tracking-tighter" x-text="editItem.id ? 'Modifier ' + editItem.type : 'Ajouter ' + editItem.type"></h3>
-                    <button @click="editItem = null" class="text-slate-300 hover:text-slate-600 text-2xl font-bold">&times;</button>
+    <div x-show="editItem" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4" style="display: none;">
+        <div @click.away="editItem = null" class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-black uppercase tracking-tighter" x-text="editItem ? (editItem.id ? 'Modifier ' + editItem.type : 'Ajouter ' + editItem.type) : ''"></h3>
+                <button @click="editItem = null" class="text-slate-300 hover:text-slate-600 text-2xl font-bold">&times;</button>
+            </div>
+
+            <form method="POST" class="space-y-4">
+                <input type="hidden" name="action" :value="editItem ? (editItem.id ? 'update_' + editItem.type : 'add_' + editItem.type) : ''">
+                <input type="hidden" name="id" :value="editItem ? editItem.id : ''">
+
+                <!-- Expérience -->
+                <div x-show="editItem && editItem.type === 'exp'" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="company" x-model="editItem.company" placeholder="Entreprise" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                        <input type="text" name="role" x-model="editItem.role" placeholder="Poste" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="location" x-model="editItem.location" placeholder="Lieu" class="border p-3 rounded-xl w-full">
+                        <input type="text" name="period" x-model="editItem.period" placeholder="Période" class="border p-3 rounded-xl w-full">
+                    </div>
+                    <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
+                        <option value="ops">Opérations</option>
+                        <option value="management">Management</option>
+                        <option value="tech">Technique</option>
+                    </select>
+                    <textarea name="content" x-model="editItem.content" placeholder="Description (une puce par ligne)..." rows="6" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
                 </div>
 
-                <form method="POST" class="space-y-4">
-                    <input type="hidden" name="action" :value="editItem.id ? 'update_' + editItem.type : 'add_' + editItem.type">
-                    <input type="hidden" name="id" :value="editItem.id">
+                <!-- Skill -->
+                <div x-show="editItem && editItem.type === 'skill'" class="space-y-4">
+                    <input type="text" name="label" x-model="editItem.label" placeholder="Compétence" class="border p-3 rounded-xl w-full">
+                    <input type="text" name="level_text" x-model="editItem.level_text" placeholder="Niveau" class="border p-3 rounded-xl w-full">
+                    <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
+                        <option value="management">Management</option>
+                        <option value="ops">Ops</option>
+                        <option value="tech">Tech</option>
+                    </select>
+                </div>
 
-                    <!-- Expérience -->
-                    <template x-if="editItem.type === 'exp'">
-                        <div class="space-y-4">
-                            <div class="grid grid-cols-2 gap-4">
-                                <input type="text" name="company" x-model="editItem.company" placeholder="Entreprise" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
-                                <input type="text" name="role" x-model="editItem.role" placeholder="Poste" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <input type="text" name="location" x-model="editItem.location" placeholder="Lieu" class="border p-3 rounded-xl w-full">
-                                <input type="text" name="period" x-model="editItem.period" placeholder="Période" class="border p-3 rounded-xl w-full">
-                            </div>
-                            <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
-                                <option value="ops">Opérations</option>
-                                <option value="management">Management</option>
-                                <option value="tech">Technique</option>
-                            </select>
-                            <textarea name="content" x-model="editItem.content" placeholder="Description (une puce par ligne)..." rows="6" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
-                        </div>
-                    </template>
+                <!-- Education -->
+                <div x-show="editItem && editItem.type === 'edu'" class="space-y-4">
+                    <input type="text" name="degree" x-model="editItem.degree" placeholder="Diplôme" class="border p-3 rounded-xl w-full">
+                    <input type="text" name="institution" x-model="editItem.institution" placeholder="École" class="border p-3 rounded-xl w-full">
+                    <input type="text" name="year" x-model="editItem.year" placeholder="Année" class="border p-3 rounded-xl w-full">
+                    <input type="hidden" name="icon" x-model="editItem.icon" value="">
+                </div>
 
-                    <!-- Skill -->
-                    <template x-if="editItem.type === 'skill'">
-                        <div class="space-y-4">
-                            <input type="text" name="label" x-model="editItem.label" placeholder="Compétence" class="border p-3 rounded-xl w-full">
-                            <input type="text" name="level_text" x-model="editItem.level_text" placeholder="Niveau" class="border p-3 rounded-xl w-full">
-                            <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
-                                <option value="management">Management</option>
-                                <option value="ops">Ops</option>
-                                <option value="tech">Tech</option>
-                            </select>
-                        </div>
-                    </template>
-
-                    <!-- Education -->
-                    <template x-if="editItem.type === 'edu'">
-                        <div class="space-y-4">
-                            <input type="text" name="degree" x-model="editItem.degree" placeholder="Diplôme" class="border p-3 rounded-xl w-full">
-                            <input type="text" name="institution" x-model="editItem.institution" placeholder="École" class="border p-3 rounded-xl w-full">
-                            <input type="text" name="year" x-model="editItem.year" placeholder="Année" class="border p-3 rounded-xl w-full">
-                            <input type="hidden" name="icon" x-model="editItem.icon" value="">
-                        </div>
-                    </template>
-
-                    <div class="pt-6">
-                        <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-full font-bold shadow-lg hover:bg-blue-700 transition" x-text="editItem.id ? 'Appliquer les modifications' : 'Créer'"></button>
-                    </div>
-                </form>
-            </div>
+                <div class="pt-6">
+                    <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-full font-bold shadow-lg hover:bg-blue-700 transition" x-text="editItem ? (editItem.id ? 'Appliquer les modifications' : 'Créer') : ''"></button>
+                </div>
+            </form>
         </div>
-    </template>
+    </div>
 </body>
 </html>
