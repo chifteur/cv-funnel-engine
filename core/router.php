@@ -30,7 +30,29 @@ function dispatch(string $request_uri): void {
         }
     }
 
-    // 3. Landing Page par défaut
+    // 3. Service des documents (Media Proxy)
+    if (str_starts_with($path, 'storage/')) {
+        $decodedPath = urldecode($path);
+        
+        // On construit le chemin absolu à partir de la racine du projet
+        $fullPath = __DIR__ . '/../' . $decodedPath;
+
+        if (file_exists($fullPath) && is_file($fullPath)) {
+            // Nettoyage des tampons de sortie pour éviter de corrompre le PDF
+            if (ob_get_level()) ob_end_clean();
+
+            header('Content-Type: application/pdf');
+            header('Content-Length: ' . filesize($fullPath));
+            header('Content-Disposition: inline; filename="' . basename($fullPath) . '"');
+            readfile($fullPath);
+            exit; // On arrête tout ici
+        } else {
+            // Debug pour toi : si ça échoue, on veut savoir quel chemin PHP a essayé de lire
+            die("Fichier introuvable sur le disque. Chemin tenté : " . htmlspecialchars($fullPath));
+        }
+    }
+
+    // 4. Landing Page par défaut
     render_view('public_home');
 }
 

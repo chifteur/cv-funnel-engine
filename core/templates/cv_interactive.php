@@ -188,6 +188,48 @@ foreach ($cv_skills as $skill) {
         </section>
         <?php endif; ?>
 
+        <!-- DOCUMENTS SECTION -->
+        <?php if (!empty($attached_docs)): ?>
+        <section id="documents" class="mb-24">
+            <h3 class="text-2xl font-black mb-10 flex items-center gap-3">
+                <i class="fa-solid fa-folder-open text-blue-600"></i> Documents & Certifications
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <?php foreach ($attached_docs as $doc): 
+                    // Logique d'icône et de couleur par catégorie
+                    $isDiploma = ($doc['category'] === 'diploma');
+                    $icon = $isDiploma ? 'fa-graduation-cap' : 'fa-file-signature';
+                    $catLabel = $isDiploma ? 'Diplôme / Certification' : 'Référence Professionnelle';
+                    $accentClass = $isDiploma ? 'text-blue-600 bg-blue-50' : 'text-slate-400 bg-slate-50';
+                ?>
+                <a href="/storage/docs/<?= htmlspecialchars($doc['filename']) ?>" 
+                target="_blank" 
+                class="group flex gap-5 p-6 bg-white border border-slate-100 rounded-3xl items-center shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 transform hover:-translate-y-1">
+                    
+                    <div class="w-16 h-16 <?= $accentClass ?> rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-blue-600 transition-colors duration-300">
+                        <i class="fa-solid <?= $icon ?> text-2xl group-hover:text-white"></i>
+                    </div>
+                    
+                    <div class="flex-1 min-w-0">
+                        <span class="text-[10px] font-black uppercase tracking-wider <?= $isDiploma ? 'text-blue-500' : 'text-slate-400' ?>">
+                            <?= $catLabel ?>
+                        </span>
+                        <h5 class="font-bold text-slate-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
+                            <?= htmlspecialchars($doc['label']) ?>
+                        </h5>
+                        <p class="text-xs text-slate-400 mt-1">Format PDF • Cliquez pour ouvrir</p>
+                    </div>
+
+                    <div class="text-slate-200 group-hover:text-blue-500 transition-colors">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-xl"></i>
+                    </div>
+                </a>
+                <?php endforeach; ?>
+            </div>
+        </section>
+        <?php endif; ?>
+
         <!-- EDUCATION SECTION -->
         <?php if (!empty($cv_edus) || !empty($cv_langs)): ?>
         <section id="education" class="mb-24">
