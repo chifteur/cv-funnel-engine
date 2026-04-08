@@ -152,14 +152,41 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
     <script>
         function appData() {
             return {
-                tab: 'apps',
-                section: 'profile',
+                // 1. Initialisation intelligente : on pioche dans le sessionStorage ou valeur par défaut
+                tab: sessionStorage.getItem('cvcrm_tab') || 'apps',
+                section: sessionStorage.getItem('cvcrm_section') || 'profile',
+                phpMessage: <?= json_encode($message ?? '') ?>,
+                toastMessage: '',
                 openModal: null, 
                 editItem: {},
                 draggedExpId: null,
                 allExps: <?= json_encode($cv_exps) ?>,
                 allApps: <?= json_encode($apps) ?>,
                 allLangs: <?= json_encode($cv_langs) ?>,
+
+                // 2. La fonction magique qui s'exécute au chargement d'Alpine
+                init() {
+                    // On surveille 'tab' : dès qu'il change, on enregistre
+                    this.$watch('tab', value => sessionStorage.setItem('cvcrm_tab', value));
+                    
+                    // On surveille 'section' : dès qu'il change, on enregistre
+                    this.$watch('section', value => sessionStorage.setItem('cvcrm_section', value));
+
+                    // Si un message PHP existe, on l'active avec un micro-délai pour lancer l'animation et on le fait disparaître après 5s
+                    if (this.phpMessage) {
+                        setTimeout(() => {
+                            this.toastMessage = this.phpMessage;
+                            this.autoHideToast();
+                        }, 10); // 10ms suffisent pour qu'Alpine détecte le changement
+                    }
+                },
+
+                autoHideToast() {
+                    setTimeout(() => {
+                        this.toastMessage = '';
+                    }, 5000);
+                },
+
                 prepEdit(type, data = {}) {
                     this.editItem = { type: type, ...data };
                 },
@@ -170,10 +197,14 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     formData.append('orders', JSON.stringify(orders));
                     fetch(window.location.href, { method: 'POST', body: formData })
                         .then(() => {
-                            alert('✅ Ordre enregistré !');
-                            setTimeout(() => location.reload(), 500);
+                            this.toastMessage = '✅ Ordre enregistré !';
+                            this.autoHideToast();
+                            setTimeout(() => location.reload(), 1000);
                         })
-                        .catch(e => alert('❌ Erreur: ' + e));
+                        .catch(e => {
+                            this.toastMessage = '❌ Erreur: ' + e;
+                            this.autoHideToast();
+                        });
                 },
                 moveExp(fromIdx, toIdx) {
                     if (fromIdx === toIdx) return;
@@ -204,9 +235,26 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
         </aside>
 
         <main class="flex-1 p-10">
-            <?php if ($message): ?>
-                <div class="mb-6 p-4 bg-white border-l-4 border-blue-500 shadow-sm rounded font-bold text-sm"><?= $message ?></div>
-            <?php endif; ?>
+            <div 
+                x-show="toastMessage"
+                x-cloak
+                x-transition:enter="transition ease-out duration-500"
+                x-transition:enter-start="opacity-0 transform translate-x-full"
+                x-transition:enter-end="opacity-100 transform translate-x-0"
+                x-transition:leave="transition ease-in duration-300"
+                x-transition:leave-start="opacity-100 transform translate-x-0"
+                x-transition:leave-end="opacity-0 transform translate-x-full"
+                class="fixed bottom-6 right-6 z-[100] flex items-center gap-3 bg-white border-l-4 border-blue-500 shadow-2xl p-4 rounded-xl min-w-[320px]">
+                <div class="bg-blue-50 p-2 rounded-full">
+                    <i class="fa-solid fa-check-circle text-blue-500"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-bold text-slate-800" x-text="toastMessage"></p>
+                </div>
+                <button @click="toastMessage = ''" class="text-slate-300 hover:text-slate-500 transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
 
             <div x-show="tab === 'apps'" class="space-y-6">
                 <div class="flex justify-between items-center">
