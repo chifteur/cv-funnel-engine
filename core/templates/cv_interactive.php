@@ -68,7 +68,7 @@ foreach ($cv_skills as $skill) {
             <div class="grid md:grid-cols-3 gap-12 items-start">
                 <div class="md:col-span-2">
                     <div class="flex items-center gap-8 mb-8">
-                        <img src="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>" alt="<?= htmlspecialchars($profile['full_name'] ?? '') ?>" class="w-28 h-28 rounded-full shadow-lg border-4 border-white object-cover">
+                        <img src="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>" alt="<?= htmlspecialchars($profile['full_name'] ?? '') ?>" class="h-40 w-auto max-w-48 rounded-full shadow-xl border-4 border-white object-cover transform hover:scale-105 transition duration-300">
                         <h2 class="text-4xl md:text-5xl font-black leading-tight">
                             Bonjour <span class="text-blue-600"><?= htmlspecialchars($app['company_name']) ?></span>
                         </h2>
