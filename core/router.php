@@ -9,19 +9,28 @@ function dispatch(string $request_uri): void {
     $path = parse_url($request_uri, PHP_URL_PATH);
     $path = trim($path, '/');
 
-    // --- GESTION DU VISITEUR (COOKIE 1 AN) ---
-    if (!isset($_COOKIE['mg_v_uuid'])) {
+    // --- GESTION DU VISITEUR ---
+    $visitor_uuid = $_COOKIE['mg_v_uuid'] ?? null;
+    if (!$visitor_uuid) {
         $visitor_uuid = generate_uuid();
         setcookie('mg_v_uuid', $visitor_uuid, time() + (86400 * 365), "/");
-    } else {
-        $visitor_uuid = $_COOKIE['mg_v_uuid'];
     }
 
-    // --- LOGIQUE DE SESSION TÉLÉMÉTRIE ---
-    $session_id = null;
-    // On peut stocker l'ID de session en PHP SESSION pour la durée de la visite
+    // --- LOGIQUE DE SESSION ROBUSTE ---
     if (!isset($_SESSION['current_telemetry_id'])) {
-        $_SESSION['current_telemetry_id'] = generate_uuid();
+        // 1. On cherche si ce visiteur a déjà une session ouverte récemment dans la BDD
+        $stmt = $db->prepare("SELECT bin_to_uuid(id) as s_id FROM telemetry_sessions 
+                            WHERE visitor_uuid = ? 
+                            AND started_at > DATE_SUB(NOW(), INTERVAL 1 HOUR) 
+                            ORDER BY started_at DESC LIMIT 1");
+        $stmt->execute([$visitor_uuid]);
+        $last_s = $stmt->fetch();
+
+        if ($last_s) {
+            $_SESSION['current_telemetry_id'] = $last_s['s_id'];
+        } else {
+            $_SESSION['current_telemetry_id'] = generate_uuid();
+        }
     }
     $session_id = $_SESSION['current_telemetry_id'];
 
@@ -102,13 +111,14 @@ function render_view(string $view_name, array $data = []): void {
 
 
 function log_session($db, $s_id, $app_id, $v_uuid) {
-    $stmt = $db->prepare("INSERT IGNORE INTO telemetry_sessions (id, app_id, visitor_uuid, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT IGNORE INTO telemetry_sessions (id, app_id, visitor_uuid, ip_address, user_agent, browser_lang) VALUES (?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         uuid_to_bin($s_id), 
         $app_id, 
         $v_uuid, 
         $_SERVER['REMOTE_ADDR'], 
-        $_SERVER['HTTP_USER_AGENT']
+        $_SERVER['HTTP_USER_AGENT'],
+        substr($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? 'fr', 0, 2)
     ]);
 }
 
