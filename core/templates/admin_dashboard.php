@@ -236,7 +236,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                                 </div>
                                 <div class="flex gap-2">
                                     <button @click="editItem = {type: 'app', ...app}" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
-                                    <form method="POST" style="display:inline">
+                                    <form method="POST" style="display:inline" @submit.prevent="if (confirm('Voulez-vous vraiment supprimer la candidature pour ' + app.company_name + ' ?')) $el.submit()" >
                                         <input type="hidden" name="action" value="delete_app">
                                         <input type="hidden" name="id" :value="app.id">
                                         <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
