@@ -30,25 +30,32 @@ function dispatch(string $request_uri): void {
         }
     }
 
-    // 3. Service des documents (Media Proxy)
+    // 3. Service des documents & images (Media Proxy)
     if (str_starts_with($path, 'storage/')) {
         $decodedPath = urldecode($path);
-        
-        // On construit le chemin absolu à partir de la racine du projet
         $fullPath = __DIR__ . '/../' . $decodedPath;
 
         if (file_exists($fullPath) && is_file($fullPath)) {
-            // Nettoyage des tampons de sortie pour éviter de corrompre le PDF
+            
+            // Utilisation de la classe finfo (plus besoin de finfo_close)
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->file($fullPath);
+
+            // Nettoyage pour éviter la corruption du fichier binaire
             if (ob_get_level()) ob_end_clean();
 
-            header('Content-Type: application/pdf');
+            header('Content-Type: ' . $mimeType);
             header('Content-Length: ' . filesize($fullPath));
             header('Content-Disposition: inline; filename="' . basename($fullPath) . '"');
+            
+            // Emplacement futur pour ta télémétrie
+            // track_view($decodedPath); 
+
             readfile($fullPath);
-            exit; // On arrête tout ici
+            exit;
         } else {
-            // Debug pour toi : si ça échoue, on veut savoir quel chemin PHP a essayé de lire
-            die("Fichier introuvable sur le disque. Chemin tenté : " . htmlspecialchars($fullPath));
+            header("HTTP/1.0 404 Not Found");
+            die("Ressource introuvable.");
         }
     }
 
