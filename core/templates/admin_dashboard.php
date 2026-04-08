@@ -159,6 +159,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Nettoyer la BDD (Supprimer l'entrée si le fichier n'existe plus)
+        if ($action === 'sync_clean_db') {
+            $stmt = $db->prepare("DELETE FROM documents WHERE filename = ?");
+            $stmt->execute([$_POST['filename']]);
+            $message = "✅ Entrée BDD nettoyée pour " . $_POST['filename'];
+        }
+
+        // Nettoyer le Disque (Supprimer le fichier s'il n'est pas en BDD)
+        if ($action === 'sync_clean_disk') {
+            $filePath = __DIR__ . '/../../storage/docs/' . $_POST['filename'];
+            if (file_exists($filePath)) {
+                unlink($filePath);
+                $message = "🗑️ Fichier orphelin supprimé du disque : " . $_POST['filename'];
+            }
+        }
+
         } catch (Exception $e) {
         $message = "❌ Erreur SQL : " . $e->getMessage();
     }
@@ -498,7 +514,61 @@ $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")-
             </div>
 
             <div x-show="tab === 'documents'" class="space-y-8" x-cloak>
-                
+                <?php
+                // 1. Récupération des données BDD
+                $dbDocs = $db->query("SELECT * FROM documents")->fetchAll();
+                $dbFilenames = array_column($dbDocs, 'filename');
+
+                // 2. Récupération des fichiers sur le Disque
+                $docsPath = __DIR__ . '/../../storage/docs/';
+                $diskFiles = array_diff(scandir($docsPath), array('.', '..'));
+
+                // 3. Calcul des anomalies
+                // Dans la BDD mais absent du disque (Ghosts)
+                $ghostDocs = array_filter($dbDocs, fn($d) => !in_array($d['filename'], $diskFiles));
+
+                // Sur le disque mais absent de la BDD (Orphans)
+                $orphanFiles = array_diff($diskFiles, $dbFilenames);
+
+                if (!empty($ghostDocs) || !empty($orphanFiles)): ?>
+                <div class="mb-10 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl">
+                    <h4 class="text-amber-800 font-black flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-triangle-exclamation"></i> 
+                        Diagnostic de Synchronisation
+                    </h4>
+
+                    <div class="space-y-4">
+                        <?php foreach ($ghostDocs as $ghost): ?>
+                        <div class="flex items-center justify-between bg-white/50 p-3 rounded-xl border border-amber-200">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-black rounded uppercase">Manquant sur Disque</span>
+                                <span class="text-sm font-bold text-slate-700"><?= $ghost['label'] ?> (<?= $ghost['filename'] ?>)</span>
+                            </div>
+                            <form method="POST">
+                                <input type="hidden" name="action" value="sync_clean_db">
+                                <input type="hidden" name="filename" value="<?= $ghost['filename'] ?>">
+                                <button type="submit" class="text-xs font-bold text-red-600 hover:underline">Supprimer l'entrée BDD</button>
+                            </form>
+                        </div>
+                        <?php endforeach; ?>
+
+                        <?php foreach ($orphanFiles as $orphan): ?>
+                        <div class="flex items-center justify-between bg-white/50 p-3 rounded-xl border border-amber-200">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-black rounded uppercase">Orphelin sur Disque</span>
+                                <span class="text-sm font-bold text-slate-700"><?= $orphan ?></span>
+                            </div>
+                            <form method="POST">
+                                <input type="hidden" name="action" value="sync_clean_disk">
+                                <input type="hidden" name="filename" value="<?= $orphan ?>">
+                                <button type="submit" class="text-xs font-bold text-blue-600 hover:underline">Supprimer le fichier</button>
+                            </form>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
                     <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
                         <i class="fa-solid fa-cloud-arrow-up text-blue-500"></i> Ajouter un nouveau document
