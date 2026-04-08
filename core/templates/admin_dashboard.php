@@ -200,7 +200,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $stmt = $db->prepare("DELETE FROM documents WHERE id = ?");
                 $stmt->execute([$id]);
-                $message = "🗑️ Document et fichier supprimés.";
+
+                // On supprime également les liens
+                $stmt = $db->prepare("DELETE FROM rel_app_doc WHERE doc_id = ?");
+                $stmt->execute([$id]);
+
+                $message = "🗑️ Le fichier et ces liens ont été supprimés.";
             }
         }
 
