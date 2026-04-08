@@ -67,8 +67,27 @@ foreach ($cv_skills as $skill) {
         <section class="mb-24 hero-gradient p-10 rounded-3xl border shadow-sm">
             <div class="grid md:grid-cols-3 gap-12 items-start">
                 <div class="md:col-span-2">
-                    <div class="flex items-center gap-8 mb-8">
-                        <img src="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>" alt="<?= htmlspecialchars($profile['full_name'] ?? '') ?>" class="h-40 w-auto max-w-48 rounded-full shadow-xl border-4 border-white object-cover transform hover:scale-105 transition duration-300">
+                    <div class="flex items-center gap-8 mb-4">
+                        <div class="flex flex-col items-center shrink-0">
+                            <img src="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>" 
+                                alt="<?= htmlspecialchars($profile['full_name'] ?? '') ?>" 
+                                class="h-40 w-auto max-w-48 rounded-3xl shadow-xl border-4 border-white object-cover transform hover:scale-105 transition duration-300">
+                            
+                            <div class="flex gap-3 mt-4">
+                                <?php if (!empty($profile['phone'])): ?>
+                                    <a href="tel:<?= $profile['phone'] ?>" title="M'appeler" class="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-300 border border-slate-100">
+                                        <i class="fa-solid fa-phone text-sm"></i>
+                                    </a>
+                                <?php endif; ?>
+
+                                <?php if (!empty($profile['linkedin_url'])): ?>
+                                    <a href="<?= htmlspecialchars($profile['linkedin_url']) ?>" target="_blank" title="Mon profil LinkedIn" class="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-[#0077b5] hover:bg-[#0077b5] hover:text-white transition-all duration-300 border border-slate-100">
+                                        <i class="fa-brands fa-linkedin-in text-sm"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
                         <h2 class="text-4xl md:text-5xl font-black leading-tight">
                             Bonjour <span class="text-blue-600"><?= htmlspecialchars($app['company_name']) ?></span>
                         </h2>
@@ -76,15 +95,15 @@ foreach ($cv_skills as $skill) {
                     <p class="text-xl text-gray-700 leading-relaxed mb-8">
                         <?= nl2br(htmlspecialchars($app['custom_pitch'] ?? '')) ?>
                     </p>
-                    <div class="flex gap-4 items-center p-4 bg-white rounded-xl border">
+                    <div class="flex gap-4 items-center p-6 bg-white rounded-xl border">
                         <i class="fa-solid fa-quote-left text-blue-300 text-2xl"></i>
-                        <p class="text-sm italic text-blue-900"><?= htmlspecialchars($app['strengths'] ?? '') ?></p>
+                        <p class="text-base italic text-blue-900"><?= htmlspecialchars($app['strengths'] ?? '') ?></p>
                     </div>
                 </div>
 
                 <div class="why-me-card bg-blue-600 p-8 rounded-3xl shadow-2xl text-white mt-10">
                     <h3 class="text-xl font-bold mb-6 underline decoration-2 underline-offset-8">Pourquoi moi ?</h3>
-                    <ul class="space-y-4 text-sm font-medium">
+                    <ul class="space-y-4 text-sm font-medium leading-relaxed">
                         <?php 
                         // 1. On récupère le texte et on le découpe à chaque saut de ligne
                         // PHP_EOL gère intelligemment les retours à la ligne selon le système (Unix/Windows)
@@ -113,7 +132,6 @@ foreach ($cv_skills as $skill) {
                 </div>
             </div>
         </section>
-
         <!-- SKILLS SECTION -->
         <?php if (!empty($cv_skills)): ?>
         <section id="skills" class="mb-24">
@@ -240,14 +258,42 @@ foreach ($cv_skills as $skill) {
 
     </main>
 
-    <div class="fixed bottom-20 left-1/2 -translate-x-1/2 flex gap-4 z-50">
-        <a href="mailto:<?= $profile['email'] ?? '' ?>?subject=Contact suite à votre CV personnalisé (<?= urlencode($profile['full_name'] ?? '') ?>)" class="bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-2xl hover:bg-blue-700 transition flex items-center gap-2">
-            <i class="fa-solid fa-calendar-check"></i> Discuter de ma contribution
+    <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex gap-4 z-50 w-full max-w-fit px-4">
+        <a href="mailto:<?= $profile['email'] ?? '' ?>?subject=Contact suite à votre CV personnalisé (<?= urlencode($profile['full_name'] ?? '') ?>)" 
+        class="bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-2xl hover:bg-blue-700 hover:scale-105 transition-all duration-300 flex items-center gap-3 border-4 border-white">
+            <i class="fa-solid fa-calendar-check"></i> 
+            <span>Discuter de ma contribution</span>
         </a>
     </div>
 
-    <footer class="text-center py-12 text-gray-400 text-xs border-t mt-12">
-        &copy; 2026 Manganese - <?= htmlspecialchars($profile['full_name'] ?? '') ?>. Dossier créé spécifiquement pour <?= htmlspecialchars($app['company_name']) ?>.
+    <footer class="text-center pt-12 pb-32 text-gray-400 text-xs border-t mt-12 bg-slate-50/50">
+        <div class="max-w-4xl mx-auto px-6">
+            
+            <div class="flex flex-wrap justify-center gap-x-8 gap-y-4 mb-8 text-gray-500 font-medium">
+                <?php if (!empty($profile['phone'])): ?>
+                    <a href="tel:<?= $profile['phone'] ?>" class="hover:text-blue-600 flex items-center gap-2 transition">
+                        <i class="fa-solid fa-phone text-[10px]"></i> <?= htmlspecialchars($profile['phone']) ?>
+                    </a>
+                <?php endif; ?>
+
+                <?php if (!empty($profile['linkedin_url'])): ?>
+                    <a href="<?= htmlspecialchars($profile['linkedin_url']) ?>" target="_blank" class="hover:text-blue-600 flex items-center gap-2 transition">
+                        <i class="fa-brands fa-linkedin-in text-[10px]"></i> LinkedIn
+                    </a>
+                <?php endif; ?>
+
+                <a href="mailto:<?= $profile['email'] ?? '' ?>" class="hover:text-blue-600 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-envelope text-[10px]"></i> <?= htmlspecialchars($profile['email'] ?? '') ?>
+                </a>
+            </div>
+
+            <p class="mb-2">
+                &copy; 2026 Manganese — <strong><?= htmlspecialchars($profile['full_name'] ?? '') ?></strong>
+            </p>
+            <p class="opacity-75">
+                Dossier créé spécifiquement pour <span class="text-blue-600 font-semibold"><?= htmlspecialchars($app['company_name']) ?></span>.
+            </p>
+        </div>
     </footer>
 
     <script src="/assets/js/telemetry.js"></script>

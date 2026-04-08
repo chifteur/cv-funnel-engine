@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // PROFIL MASTER
         if ($action === 'update_profile') {
             $stmt = $db->prepare("UPDATE profile_settings SET full_name=?, job_title=?, bio=?, email=?, phone=?, linkedin_url=?, photo_path=? WHERE id=1");
-            $stmt->execute([$_POST['full_name'], $_POST['job_title'], $_POST['bio'], $_POST['email'] ?? '', $_POST['phone'] ?? '', $_POST['linkedin_url'] ?? '', $_POST['photo_path'] ?? '']);
+            $stmt->execute([$_POST['full_name'] ?? '', $_POST['job_title'] ?? '', $_POST['bio'] ?? '', $_POST['email'] ?? '', $_POST['phone'] ?? '', $_POST['linkedin_url'] ?? '', $_POST['photo_path'] ?? '']);
             $message = "✅ Profil Master mis à jour.";
         }
 
@@ -264,19 +264,40 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <div x-show="section === 'profile'" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
                         <form method="POST" class="grid grid-cols-2 gap-6">
                             <input type="hidden" name="action" value="update_profile">
+
                             <div class="col-span-1">
                                 <label class="block text-[10px] font-black uppercase text-slate-400">Nom Complet</label>
-                                <input type="text" name="full_name" value="<?= htmlspecialchars($profile['full_name'] ?? '') ?>" class="w-full mt-1 border-b py-2 outline-none font-bold">
+                                <input type="text" name="full_name" value="<?= htmlspecialchars($profile['full_name'] ?? '') ?>" class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500">
                             </div>
                             <div class="col-span-1">
-                                <label class="block text-[10px] font-black uppercase text-slate-400">Titre</label>
-                                <input type="text" name="job_title" value="<?= htmlspecialchars($profile['job_title'] ?? '') ?>" class="w-full mt-1 border-b py-2 outline-none font-bold">
+                                <label class="block text-[10px] font-black uppercase text-slate-400">Titre Professionnel</label>
+                                <input type="text" name="job_title" value="<?= htmlspecialchars($profile['job_title'] ?? '') ?>" class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500">
                             </div>
+
+                            <div class="col-span-1">
+                                <label class="block text-[10px] font-black uppercase text-slate-400">Email</label>
+                                <input type="email" name="email" value="<?= htmlspecialchars($profile['email'] ?? '') ?>" class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-[10px] font-black uppercase text-slate-400">Téléphone</label>
+                                <input type="tel" name="phone" value="<?= htmlspecialchars($profile['phone'] ?? '') ?>" class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500">
+                            </div>
+
+                            <div class="col-span-1">
+                                <label class="block text-[10px] font-black uppercase text-slate-400">URL LinkedIn</label>
+                                <input type="url" name="linkedin_url" value="<?= htmlspecialchars($profile['linkedin_url'] ?? '') ?>" placeholder="https://linkedin.com/in/..." class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500 text-sm">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-[10px] font-black uppercase text-slate-400">Chemin de la photo (Photo Path)</label>
+                                <input type="text" name="photo_path" value="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>" placeholder="images/photo.jpg" class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500 text-sm">
+                            </div>
+
                             <div class="col-span-2">
                                 <label class="block text-[10px] font-black uppercase text-slate-400">Bio / Summary</label>
-                                <textarea name="bio" rows="4" class="w-full mt-1 border rounded-xl p-3 text-sm"><?= htmlspecialchars($profile['bio'] ?? '') ?></textarea>
+                                <textarea name="bio" rows="4" class="w-full mt-1 border rounded-xl p-3 text-sm focus:border-blue-500 outline-none"><?= htmlspecialchars($profile['bio'] ?? '') ?></textarea>
                             </div>
-                            <button type="submit" class="col-span-2 bg-slate-900 text-white py-3 rounded-full font-bold hover:bg-blue-600 transition">Sauvegarder Profil</button>
+
+                            <button type="submit" class="col-span-2 bg-slate-900 text-white py-3 rounded-full font-bold hover:bg-blue-600 transition shadow-lg">Sauvegarder Profil</button>
                         </form>
                     </div>
 
