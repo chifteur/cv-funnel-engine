@@ -78,17 +78,35 @@ foreach ($cv_skills as $skill) {
                     </p>
                     <div class="flex gap-4 items-center p-4 bg-white rounded-xl border">
                         <i class="fa-solid fa-quote-left text-blue-300 text-2xl"></i>
-                        <p class="text-sm italic text-blue-900"><?= htmlspecialchars($profile['bio'] ?? '') ?></p>
+                        <p class="text-sm italic text-blue-900"><?= htmlspecialchars($app['strengths'] ?? '') ?></p>
                     </div>
                 </div>
 
                 <div class="why-me-card bg-blue-600 p-8 rounded-3xl shadow-2xl text-white mt-10">
                     <h3 class="text-xl font-bold mb-6 underline decoration-2 underline-offset-8">Pourquoi moi ?</h3>
                     <ul class="space-y-4 text-sm font-medium">
-                        <?php foreach (array_slice($cv_exps, 0, 4) as $exp): ?>
+                        <?php 
+                        // 1. On récupère le texte et on le découpe à chaque saut de ligne
+                        // PHP_EOL gère intelligemment les retours à la ligne selon le système (Unix/Windows)
+                        $why_me_lines = explode("\n", $app['why_me'] ?? ''); 
+                        
+                        // 2. On nettoie les lignes vides pour éviter des listes à puces inutiles
+                        $why_me_lines = array_filter(array_map('trim', $why_me_lines));
+
+                        foreach ($why_me_lines as $line): 
+                            // Par défaut, l'icône est un "check"
+                            $iconName = 'check';
+                            $displayText = $line;
+                            // On vérifie si la ligne contient ":" pour changer l'icône
+                            if (strpos($line, ':') !== false) {
+                                $parts = explode(':', $line, 2); // On sépare en 2 parties max
+                                $iconName = trim($parts[0]);
+                                $displayText = trim($parts[1]);
+                            }
+                        ?>
                             <li class="flex gap-3">
-                                <i class="fa-solid fa-check text-blue-200"></i>
-                                <span><?= htmlspecialchars($exp['role']) ?> @ <?= htmlspecialchars($exp['company']) ?></span>
+                                <i class="fa-solid fa-<?= htmlspecialchars($iconName) ?> text-blue-200"></i>
+                                <span><?= htmlspecialchars($displayText) ?></span>
                             </li>
                         <?php endforeach; ?>
                     </ul>
@@ -189,7 +207,7 @@ foreach ($cv_skills as $skill) {
                 <div>
                     <h2 class="text-3xl font-black mb-6 italic">Pourquoi <?= htmlspecialchars($profile['full_name'] ?? '') ?> + <?= htmlspecialchars($app['company_name']) ?> ?</h2>
                     <p class="text-gray-400 leading-relaxed mb-8">
-                        <?= nl2br(htmlspecialchars($profile['bio'] ?? '')) ?>
+                        <?= nl2br(htmlspecialchars($app['perfect_match'] ?? '')) ?>
                     </p>
                 </div>
                 <div class="space-y-6 bg-gray-800 p-8 rounded-2xl border border-gray-700">

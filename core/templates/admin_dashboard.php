@@ -23,13 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // CANDIDATURES /GO/
         if ($action === 'add_app') {
-            $stmt = $db->prepare("INSERT INTO applications (slug, company_name, job_title, job_url, custom_pitch, default_lens, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['default_lens'], $_POST['status'] ?? 'sent']);
+            $stmt = $db->prepare("INSERT INTO applications (slug, company_name, job_title, job_url, custom_pitch, why_me, strengths, perfect_match, default_lens, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['why_me'] ?? '', $_POST['strengths'] ?? '', $_POST['perfect_match'] ?? '', $_POST['default_lens'], $_POST['status'] ?? 'sent']);
             $message = "🚀 Candidature créée.";
         }
         if ($action === 'update_app') {
-            $stmt = $db->prepare("UPDATE applications SET slug=?, company_name=?, job_title=?, job_url=?, custom_pitch=?, default_lens=?, status=? WHERE id=?");
-            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['default_lens'], $_POST['status'], $_POST['id']]);
+            $stmt = $db->prepare("UPDATE applications SET slug=?, company_name=?, job_title=?, job_url=?, custom_pitch=?, why_me=?, strengths=?, perfect_match=?, default_lens=?, status=? WHERE id=?");
+            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['why_me'] ?? '', $_POST['strengths'] ?? '', $_POST['perfect_match'] ?? '', $_POST['default_lens'], $_POST['status'], $_POST['id']]);
             $message = "✅ Candidature mise à jour.";
         }
         if ($action === 'delete_app') {
@@ -209,7 +209,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
             <div x-show="tab === 'apps'" class="space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-3xl font-black uppercase">Postulations</h2>
-                    <button @click="editItem = {type: 'app', id: '', slug: '', company_name: '', job_title: '', job_url: '', custom_pitch: '', default_lens: 'ops', status: 'sent'}" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">+ Nouvelle Candidature</button>
+                    <button @click="editItem = {type: 'app', id: '', slug: '', company_name: '', job_title: '', job_url: '', custom_pitch: '', why_me: '', strengths: '', perfect_match: '',  default_lens: 'ops', status: 'sent'}" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">+ Nouvelle Candidature</button>
                 </div>
                 <div class="grid gap-4">
                     <template x-for="app in allApps" :key="app.id">
@@ -528,6 +528,13 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                     <input type="text" name="job_title" x-model="editItem.job_title" placeholder="Poste" class="border p-3 rounded-xl w-full">
                     <input type="url" name="job_url" x-model="editItem.job_url" placeholder="URL de l'offre (optionnel)" class="border p-3 rounded-xl w-full">
                     <textarea name="custom_pitch" x-model="editItem.custom_pitch" placeholder="Pitch personnalisé..." rows="4" class="border p-3 rounded-xl w-full text-sm"></textarea>
+                    <div class="space-y-3">
+                        <textarea name="why_me" x-model="editItem.why_me" placeholder="Pourquoi moi ? (icône:Présentation personnelle)" rows="4" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
+                        
+                        <textarea name="strengths" x-model="editItem.strengths" placeholder="Mes forces et compétences clés..." rows="4" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
+                        
+                        <textarea name="perfect_match" x-model="editItem.perfect_match" placeholder="Pourquoi nous sommes un bon match..." rows="4" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
+                    </div>
                     <div class="grid grid-cols-2 gap-4">
                         <select name="default_lens" x-model="editItem.default_lens" class="border p-3 rounded-xl w-full bg-slate-50">
                             <option value="ops">Ops</option>
