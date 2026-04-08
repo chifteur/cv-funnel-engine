@@ -47,12 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'update_exp') {
             $stmt = $db->prepare("UPDATE cv_experiences SET company=?, role=?, location=?, period=?, content=?, category=? WHERE id=?");
             $stmt->execute([$_POST['company'], $_POST['role'], $_POST['location'], $_POST['period'], $_POST['content'], $_POST['category'], $_POST['id']]);
-            $message = "✅ Expérience mise à jour.";
+            $role = htmlspecialchars($_POST['role'] ?? 'Inconnue');
+            $message = "✅ Expérience {$role} mise à jour.";            
         }
         if ($action === 'delete_exp') {
             $stmt = $db->prepare("DELETE FROM cv_experiences WHERE id = ?");
             $stmt->execute([$_POST['id']]);
-            $message = "✅ Expérience supprimée.";
+            $role = htmlspecialchars($_POST['role'] ?? 'Inconnue');
+            $message = "✅ Expérience {$role} supprimée.";
         }
         if ($action === 'reorder_exp') {
             // Reçoit un JSON array: [{id: 1, order: 0}, {id: 2, order: 1}, ...]
@@ -323,9 +325,10 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                                     </div>
                                     <div class="flex gap-2">
                                         <button @click="prepEdit('exp', exp)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
-                                        <form method="POST" style="display:inline">
+                                        <form method="POST" style="display:inline" @submit.prevent="if (confirm('Voulez-vous vraiment supprimer l\'expérience ' + exp.role + ' ?')) $el.submit()">
                                             <input type="hidden" name="action" value="delete_exp">
                                             <input type="hidden" name="id" :value="exp.id">
+                                            <input type="hidden" name="role" :value="exp.role">
                                             <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
                                         </form>
                                     </div>
