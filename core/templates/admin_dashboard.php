@@ -23,19 +23,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // CANDIDATURES /GO/
         if ($action === 'add_app') {
-            $stmt = $db->prepare("INSERT INTO applications (slug, company_name, job_title, job_url, custom_pitch, why_me, strengths, perfect_match, default_lens, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['why_me'] ?? '', $_POST['strengths'] ?? '', $_POST['perfect_match'] ?? '', $_POST['default_lens'], $_POST['status'] ?? 'sent']);
-            $message = "🚀 Candidature créée.";
+            try {
+                $db->beginTransaction();
+                $stmt = $db->prepare("INSERT INTO applications (slug, company_name, job_title, job_url, custom_pitch, why_me, strengths, perfect_match, default_lens, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+                $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['why_me'] ?? '', $_POST['strengths'] ?? '', $_POST['perfect_match'] ?? '', $_POST['default_lens'], $_POST['status'] ?? 'sent']);
+                // Si c'est un INSERT, récupère le nouvel ID
+                if (!$app_id) $app_id = $db->lastInsertId();
+
+                // 1. On insère les nouveaux si sélectionnés
+                if (!empty($_POST['selected_docs'])) {
+                    $stmtInsert = $db->prepare("INSERT INTO rel_app_doc (app_id, doc_id) VALUES (?, ?)");
+                    foreach ($_POST['selected_docs'] as $doc_id) {
+                        $stmtInsert->execute([$app_id, (int)$doc_id]);
+                    }
+                }
+
+                $message = "🚀 Candidature et documents liés créées.";
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                $message = "❌ Erreur critique : " . $e->getMessage();
+            }
         }
         if ($action === 'update_app') {
-            $stmt = $db->prepare("UPDATE applications SET slug=?, company_name=?, job_title=?, job_url=?, custom_pitch=?, why_me=?, strengths=?, perfect_match=?, default_lens=?, status=? WHERE id=?");
-            $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['why_me'] ?? '', $_POST['strengths'] ?? '', $_POST['perfect_match'] ?? '', $_POST['default_lens'], $_POST['status'], $_POST['id']]);
-            $message = "✅ Candidature mise à jour.";
+            try {
+                $db->beginTransaction();
+                $stmt = $db->prepare("UPDATE applications SET slug=?, company_name=?, job_title=?, job_url=?, custom_pitch=?, why_me=?, strengths=?, perfect_match=?, default_lens=?, status=? WHERE id=?");
+                $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['why_me'] ?? '', $_POST['strengths'] ?? '', $_POST['perfect_match'] ?? '', $_POST['default_lens'], $_POST['status'], $_POST['id']]);
+            
+                if (!$app_id) 
+                    $app_id = $_POST['id'];
+
+                // SYNCHRONISATION DES DOCUMENTS
+                // 1. On supprime les anciens liens
+                $stmt = $db->prepare("DELETE FROM rel_app_doc WHERE app_id = ?");
+                $stmt->execute([$app_id]);
+
+                // 2. On insère les nouveaux si sélectionnés
+                if (!empty($_POST['selected_docs'])) {
+                    $stmtInsert = $db->prepare("INSERT INTO rel_app_doc (app_id, doc_id) VALUES (?, ?)");
+                    foreach ($_POST['selected_docs'] as $doc_id) {
+                        $stmtInsert->execute([$app_id, (int)$doc_id]);
+                    }
+                }            
+                $message = "✅ Candidature et documents liés mise à jour.";
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                $message = "❌ Erreur critique : " . $e->getMessage();
+            }
         }
         if ($action === 'delete_app') {
+            // 1. On supprime les anciens liens
+            $stmt = $db->prepare("DELETE FROM rel_app_doc WHERE app_id = ?");
+            $stmt->execute([$_POST['id']]);
+
             $stmt = $db->prepare("DELETE FROM applications WHERE id = ?");
             $stmt->execute([$_POST['id']]);
-            $message = "✅ Candidature supprimée.";
+            $message = "✅ Candidature et documents liés supprimés.";
         }
 
         // --- CRUD CV : EXPÉRIENCES ---
@@ -182,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // --- 2. RÉCUPÉRATION DES DONNÉES ---
 $profile = $db->query("SELECT * FROM profile_settings WHERE id=1")->fetch();
-$apps = $db->query("SELECT a.*, (SELECT COUNT(*) FROM telemetry_sessions WHERE app_id = a.id) as visits FROM applications a ORDER BY created_at DESC")->fetchAll();
+$apps = $db->query("SELECT a.*, (SELECT GROUP_CONCAT(doc_id) FROM rel_app_doc WHERE app_id = a.id) as doc_ids, (SELECT COUNT(*) FROM telemetry_sessions WHERE app_id = a.id) as visits FROM applications a ORDER BY a.created_at DESC")->fetchAll();
 $telemetry_logs = $db->query("
     SELECT e.*, a.company_name 
     FROM telemetry_events e 
@@ -197,6 +242,7 @@ $cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll()
 $cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll();
 $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
 $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetchAll();
+$allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -218,12 +264,12 @@ $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")-
                 phpMessage: <?= json_encode($message ?? '') ?>,
                 toastMessage: '',
                 openModal: null, 
-                editItem: {},
+                editItem: { doc_ids: [] }, // Initialisation de l'objet pour éviter les erreurs d'accès aux propriétés
                 draggedExpId: null,
                 allExps: <?= json_encode($cv_exps) ?>,
                 allApps: <?= json_encode($apps) ?>,
                 allLangs: <?= json_encode($cv_langs) ?>,
-                allDocs: <?= json_encode($attached_docs) ?>,
+                allDocs: <?= json_encode($allDocs) ?>,
                 // 2. La fonction magique qui s'exécute au chargement d'Alpine
                 init() {
                     // On surveille 'tab' : dès qu'il change, on enregistre
@@ -248,7 +294,26 @@ $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")-
                 },
 
                 prepEdit(type, data = {}) {
-                    this.editItem = { type: type, ...data };
+                    let docIds = [];
+                    // On transforme la chaîne "5,8" en tableau d'entiers [5, 8]
+                    if (type === 'app') {
+                            if (data.doc_ids) {
+                                // Si c'est une chaîne "1,2", on split. Sinon si c'est déjà un array, on le prend.
+                                docIds = typeof data.doc_ids === 'string' 
+                                    ? data.doc_ids.split(',').map(Number) 
+                                    : [...data.doc_ids]; 
+                            }
+                        }
+
+                    // 2. On fusionne proprement
+                    this.editItem = { 
+                        type: type, 
+                        ...data, 
+                        doc_ids: docIds // On garantit que c'est TOUJOURS un tableau ici
+                    };
+                    
+                    // Debug : décommente la ligne suivante pour vérifier dans la console
+                    console.log('Edit Item initialized:', this.editItem);
                 },
                 saveDragOrder() {
                     const orders = this.allExps.map((e, idx) => ({id: e.id, order: idx}));
@@ -321,7 +386,7 @@ $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")-
             <div x-show="tab === 'apps'" class="space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-3xl font-black uppercase">Postulations</h2>
-                    <button @click="editItem = {type: 'app', id: '', slug: '', company_name: '', job_title: '', job_url: '', custom_pitch: '', why_me: '', strengths: '', perfect_match: '',  default_lens: 'ops', status: 'sent'}" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">+ Nouvelle Candidature</button>
+                    <button @click="prepEdit('app')" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">+ Nouvelle Candidature</button>
                 </div>
                 <div class="grid gap-4">
                     <template x-for="app in allApps" :key="app.id">
@@ -347,7 +412,7 @@ $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")-
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</p>
                                 </div>
                                 <div class="flex gap-2">
-                                    <button @click="editItem = {type: 'app', ...app}" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button @click="prepEdit('app', app)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
                                     <form method="POST" style="display:inline" @submit.prevent="if (confirm('Voulez-vous vraiment supprimer la candidature pour ' + app.company_name + ' ?')) $el.submit()" >
                                         <input type="hidden" name="action" value="delete_app">
                                         <input type="hidden" name="id" :value="app.id">
@@ -685,32 +750,6 @@ $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")-
         </main>
     </div>
 
-    <template x-if="openModal === 'new_app'">
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-            <div class="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl">
-                <h3 class="text-2xl font-bold mb-6">Créer un lien personnalisé</h3>
-                <form method="POST" class="space-y-4">
-                    <input type="hidden" name="action" value="add_app">
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" name="company_name" placeholder="Entreprise" class="border p-3 rounded-lg w-full" required>
-                        <input type="text" name="slug" placeholder="Slug (ex: jenov)" class="border p-3 rounded-lg w-full font-mono" required>
-                    </div>
-                    <input type="text" name="job_title" placeholder="Titre du poste" class="border p-3 rounded-lg w-full">
-                    <select name="default_lens" class="border p-3 rounded-lg w-full bg-slate-50">
-                        <option value="ops">Angle : Opérations / Agile</option>
-                        <option value="management">Angle : Management / Direction</option>
-                        <option value="tech">Angle : Architecture / Technique</option>
-                    </select>
-                    <textarea name="custom_pitch" placeholder="Pitch personnalisé..." rows="4" class="border p-3 rounded-lg w-full text-sm"></textarea>
-                    <div class="flex gap-4">
-                        <button type="button" @click="openModal = null" class="flex-1 border p-3 rounded-lg font-bold">Annuler</button>
-                        <button type="submit" class="flex-1 bg-blue-600 text-white p-3 rounded-lg font-bold">Générer</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </template>
-
     <!-- MODAL D'ÉDITION CV (fusionné) -->
     <div x-show="editItem && editItem.type" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4" style="display: none;">
         <div @click.away="editItem = {}" class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -782,18 +821,43 @@ $attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")-
                         
                         <textarea name="perfect_match" x-model="editItem.perfect_match" placeholder="Pourquoi nous sommes un bon match..." rows="4" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <select name="default_lens" x-model="editItem.default_lens" class="border p-3 rounded-xl w-full bg-slate-50">
-                            <option value="ops">Ops</option>
-                            <option value="management">Management</option>
-                            <option value="tech">Tech</option>
-                        </select>
-                        <select name="status" x-model="editItem.status" class="border p-3 rounded-xl w-full bg-slate-50">
-                            <option value="sent">Envoyé</option>
-                            <option value="interview">Entretien</option>
-                            <option value="rejected">Rejeté</option>
-                            <option value="accepted">Accepté</option>
-                        </select>
+                    <div class="mt-8 border-t pt-6">
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">
+                            Documents joints à ce dossier
+                        </label>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <template x-for="doc in allDocs" :key="doc.id">
+                                <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition"
+                                    :class="editItem.doc_ids.includes(doc.id) ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-100 hover:border-slate-300'">
+                                    
+                                    <input type="checkbox" :value="doc.id" x-model="editItem.doc_ids" name="selected_docs[]" class="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500">
+                                    
+                                    <div class="flex items-center gap-3">
+                                        <i class="fa-solid text-sm" :class="doc.category === 'diploma' ? 'fa-graduation-cap text-blue-500' : 'fa-file-signature text-slate-400'"></i>
+                                        <span class="text-xs font-bold text-slate-700" x-text="doc.label"></span>
+                                    </div>
+                                </label>
+                            </template>
+                        </div>
+                    </div>                    
+                    <div class="mt-8 border-t pt-6">
+                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">
+                            Statut du dossier
+                        </label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <select name="default_lens" x-model="editItem.default_lens" class="border p-3 rounded-xl w-full bg-slate-50">
+                                <option value="ops">Ops</option>
+                                <option value="management">Management</option>
+                                <option value="tech">Tech</option>
+                            </select>
+                            <select name="status" x-model="editItem.status" class="border p-3 rounded-xl w-full bg-slate-50">
+                                <option value="sent">Envoyé</option>
+                                <option value="interview">Entretien</option>
+                                <option value="rejected">Rejeté</option>
+                                <option value="accepted">Accepté</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
