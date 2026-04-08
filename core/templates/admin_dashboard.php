@@ -116,6 +116,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$_POST['id']]);
             $message = "✅ Langue supprimée.";
         }
+
+        // --- gestion des documents uploadés ---
+        if ($action === 'add_doc') {
+            $label = $_POST['label'] ?? 'Sans titre';
+            $category = $_POST['category'] ?? 'reference';
+            $file = $_FILES['doc_file'];
+
+            if ($file['error'] === UPLOAD_ERR_OK) {
+                // 1. Nettoyage du nom de fichier (Ingénieur Style)
+                $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $cleanName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', pathinfo($file['name'], PATHINFO_FILENAME)));
+                $filename = $cleanName . '_' . time() . '.' . $extension; // On ajoute le timestamp pour éviter les doublons
+                
+                $targetPath = __DIR__ . '/../../storage/docs/' . $filename;
+
+                if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+                    $stmt = $db->prepare("INSERT INTO documents (label, filename, category) VALUES (?, ?, ?)");
+                    $stmt->execute([$label, $filename, $category]);
+                    $message = "✅ Document {$filename} ajouté avec succès.";
+                }
+            }
+        }
+
+        if ($action === 'delete_doc') {
+            $id = $_POST['id'];
+            
+            // 1. On récupère le nom du fichier pour le supprimer du disque
+            $stmt = $db->prepare("SELECT filename FROM documents WHERE id = ?");
+            $stmt->execute([$id]);
+            $doc = $stmt->fetch();
+
+            if ($doc) {
+                $filePath = __DIR__ . '/../../storage/docs/' . $doc['filename'];
+                if (file_exists($filePath)) {
+                    unlink($filePath); // Efface physiquement le fichier
+                }
+
+                $stmt = $db->prepare("DELETE FROM documents WHERE id = ?");
+                $stmt->execute([$id]);
+                $message = "🗑️ Document et fichier supprimés.";
+            }
+        }
+
         } catch (Exception $e) {
         $message = "❌ Erreur SQL : " . $e->getMessage();
     }
@@ -137,6 +180,7 @@ $cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY display_order ASC, 
 $cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll();
 $cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll();
 $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
+$attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -163,7 +207,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                 allExps: <?= json_encode($cv_exps) ?>,
                 allApps: <?= json_encode($apps) ?>,
                 allLangs: <?= json_encode($cv_langs) ?>,
-
+                allDocs: <?= json_encode($attached_docs) ?>,
                 // 2. La fonction magique qui s'exécute au chargement d'Alpine
                 init() {
                     // On surveille 'tab' : dès qu'il change, on enregistre
@@ -225,6 +269,9 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                 <button @click="tab = 'cv'" :class="tab === 'cv' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-user-pen w-5"></i> Éditeur de CV
                 </button>
+                <button @click="tab = 'documents'" :class="tab === 'documents' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
+                    <i class="fa-solid fa-folder-open w-5"></i> Documents
+                </button>
                 <button @click="tab = 'stats'" :class="tab === 'stats' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-bolt w-5"></i> Télémétrie
                 </button>
@@ -235,8 +282,7 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
         </aside>
 
         <main class="flex-1 p-10">
-            <div 
-                x-show="toastMessage"
+            <div x-show="toastMessage"
                 x-cloak
                 x-transition:enter="transition ease-out duration-500"
                 x-transition:enter-start="opacity-0 transform translate-x-full"
@@ -448,6 +494,65 @@ $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
                         </div>
                         <button @click="prepEdit('edu', {id:'', degree:'', institution:'', year:'', icon:''})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Formation</button>
                     </div>
+                </div>
+            </div>
+
+            <div x-show="tab === 'documents'" class="space-y-8" x-cloak>
+                
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-blue-500"></i> Ajouter un nouveau document
+                    </h3>
+                    <form method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                        <input type="hidden" name="action" value="add_doc">
+                        
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-slate-400">Libellé (ex: Diplôme HES)</label>
+                            <input type="text" name="label" required class="w-full mt-1 border-b py-2 outline-none font-bold">
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-slate-400">Catégorie</label>
+                            <select name="category" class="w-full mt-1 border-b py-2 outline-none font-bold">
+                                <option value="diploma">Diplôme / Certification</option>
+                                <option value="reference">Référence Professionnelle</option>
+                                <option value="other">Autre</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-slate-400">Fichier (PDF uniquement)</label>
+                            <input type="file" name="doc_file" accept=".pdf" required class="w-full mt-1 text-xs">
+                        </div>
+
+                        <button type="submit" class="md:col-span-3 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">
+                            Télécharger le document
+                        </button>
+                    </form>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <template x-for="doc in allDocs" :key="doc.id">
+                        <div class="bg-white p-4 rounded-xl border flex items-center justify-between group">
+                            <div class="flex items-center gap-4">
+                                <div class="p-3 bg-slate-50 rounded-lg group-hover:bg-blue-50 transition">
+                                    <i :class="doc.category === 'diploma' ? 'fa-graduation-cap' : 'fa-file-signature'" class="fa-solid text-slate-400 group-hover:text-blue-500"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-800" x-text="doc.label"></p>
+                                    <p class="text-[10px] text-slate-400 uppercase tracking-widest" x-text="doc.filename"></p>
+                                </div>
+                            </div>
+                            
+                            <form method="POST" @submit.prevent="if(confirm('Supprimer définitivement ce document et son fichier ?')) $el.submit()">
+                                <input type="hidden" name="action" value="delete_doc">
+                                <input type="hidden" name="id" :value="doc.id">
+                                <button type="submit" class="text-slate-300 hover:text-red-500 p-2 transition">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </template>
                 </div>
             </div>
 
