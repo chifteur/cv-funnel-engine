@@ -215,27 +215,28 @@ CREATE TABLE `rel_app_doc` (
 -- Table structure for table `telemetry_events`
 --
 
-CREATE TABLE `telemetry_events` (
-  `id` int NOT NULL,
-  `session_id` int DEFAULT NULL,
-  `type` enum('copy_paste','pdf_download','section_view','revisit') COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `data` text COLLATE utf8mb3_unicode_ci,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `telemetry_sessions`
---
-
+-- Identifie un visiteur unique (via cookie) et sa session actuelle
 CREATE TABLE `telemetry_sessions` (
-  `id` int NOT NULL,
-  `app_id` int DEFAULT NULL,
-  `visitor_uid` varchar(64) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `started_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `duration_seconds` int DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+  `id` BINARY(16) PRIMARY KEY,
+  `app_id` INT NOT NULL,
+  `visitor_uuid` VARCHAR(64) NOT NULL, -- Stocké dans le cookie longue durée
+  `ip_address` VARCHAR(45),
+  `user_agent` TEXT,
+  `browser_lang` VARCHAR(10),
+  `started_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `last_activity` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `duration_seconds` INT DEFAULT 0
+);
+
+-- Enregistre chaque action précise
+CREATE TABLE `telemetry_events` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `session_id` BINARY(16),
+  `event_type` ENUM('view_section', 'download', 'copy_text', 'scroll_depth', 'heartbeat') NOT NULL,
+  `element_id` VARCHAR(100), -- ex: 'diplome_hes', 'description_job_vnv'
+  `event_data` TEXT, -- Détails (ex: % de scroll, texte copié)
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 --
 -- Indexes for dumped tables
