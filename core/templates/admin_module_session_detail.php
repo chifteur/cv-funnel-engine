@@ -56,10 +56,7 @@ foreach ($events as $e) {
     }
 }
 $total_focus = array_sum($focus_stats) ?: 1; // Éviter division par zéro
-?>
 
-
-<?php
 // On crée un nouveau tableau pour stocker les événements groupés
 $grouped_events = [];
 $current_group = null;
@@ -147,10 +144,17 @@ if ($current_group) {
             </div>
 
             <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Technologie cible</p>
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Appareil</p>
                 <div class="flex items-center gap-3 overflow-hidden">
                     <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border text-slate-400 shrink-0">
-                        <i class="fa-solid <?= str_contains($session['user_agent'], 'Mobi') ? 'fa-mobile-screen' : 'fa-laptop' ?> text-lg"></i>
+                        <?php 
+                            $ua = $session['user_agent']; 
+                            $icon = "fa-solid fa-laptop"; // Défaut
+                            if (strpos($ua, 'Mobi') !== false) $icon = "fa-solid fa-mobile-screen-button";
+                            if (strpos($ua, 'Android') !== false) $icon = "fa-brands fa-android";
+                            if (strpos($ua, 'iPhone') !== false || strpos($ua, 'Macintosh') !== false) $icon = "fa-brands fa-apple";
+                        ?>
+                        <i class="<?= $icon ?> text-slate-400" title="<?= htmlspecialchars($session['user_agent']) ?>"></i>                        
                     </div>
                     <div class="truncate">
                         <p class="text-xs font-bold text-slate-700 truncate"><?= explode(' ', $session['user_agent'])[0] ?></p>
