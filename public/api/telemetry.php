@@ -1,22 +1,42 @@
 <?php
-require_once '../../core/config.php';
+/**
+ * Manganese API - Reception de télémétrie JS
+ */
+require_once __DIR__ . '/../../core/config.php';
+require_once __DIR__ . '/../../core/tools.php';
 
-$app_id = $_POST['app_id'] ?? 0;
-$type = $_POST['type'] ?? 'ping';
-$data = $_POST['data'] ?? '';
-$uid = $_COOKIE['m_uid'] ?? 'guest';
+// On démarre la session pour récupérer l'ID de session actif
+session_start();
 
-$db = get_db_connection();
+// On récupère les données JSON envoyées par le Beacon
+$json = file_get_contents('php://input');
+$data = json_decode($json, true);
 
-// 1. Log de l'événement
-$stmt = $db->prepare("INSERT INTO telemetry_events (app_id, visitor_uid, event_type, event_details) VALUES (?, ?, ?, ?)");
-$stmt->execute([$app_id, $uid, $type, $data]);
+if ($data && isset($_SESSION['current_telemetry_id'])) {
+    $db = get_db_connection();
+    $session_id = $_SESSION['current_telemetry_id'];
 
-// 2. Notification Telegram sur "Session Start"
-if ($type === 'session_start') {
-    $company_name = get_company_name($app_id); // Petite fonction helper
-    $message = "🚀 *CV Ouvert !*\n🏢 Entreprise : {$company_name}\n👤 ID Visiteur : `{$uid}`\n📍 [Voir le Dashboard](https://manganese.ch/manage/...)";
-    
-    $url = "https://api.telegram.org/bot".TELEGRAM_TOKEN."/sendMessage?chat_id=".TELEGRAM_CHAT_ID."&text=".urlencode($message)."&parse_mode=Markdown";
-    file_get_contents($url);
+    // 1. Log de l'événement précis
+    log_event(
+        $db, 
+        $session_id, 
+        $data['type'], 
+        $data['el_id'] ?? '', 
+        $data['data'] ?? ''
+    );
+
+    // 2. Mise à jour de la durée de vie de la session (en secondes)
+    $stmt = $db->prepare("
+        UPDATE telemetry_sessions 
+        SET duration_seconds = TIMESTAMPDIFF(SECOND, started_at, NOW()),
+            last_activity = NOW() 
+        WHERE id = ?
+    ");
+    $stmt->execute([uuid_to_bin($session_id)]);
+
+    // Pas de réponse nécessaire pour un Beacon, on sort proprement
+    http_response_code(204); // No Content
+} else {
+    http_response_code(400); // Bad Request
 }
+exit;

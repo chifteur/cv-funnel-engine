@@ -114,7 +114,13 @@ function dispatch(string $request_uri): void {
         }
     }
 
-    // 4. Landing Page par défaut
+    // 4. API Telemetry (Appels depuis le JS)
+    if ($path === 'api/telemetry' || $path === 'api/telemetry.php') {
+        require_once __DIR__ . '/../public/api/telemetry.php';
+        return; // On arrête le script ici
+    }
+
+    // 5. Landing Page par défaut
     render_view('public_home');
 }
 
