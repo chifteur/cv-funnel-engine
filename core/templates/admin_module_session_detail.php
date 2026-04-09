@@ -26,12 +26,12 @@ $stmt = $db->prepare("SELECT * FROM telemetry_events WHERE session_id = ? ORDER 
 $stmt->execute([uuid_to_bin($id)]);
 $events = $stmt->fetchAll();
 
-// 3. RÉCUPÉRATION DE L'HISTORIQUE DU VISITEUR (Autres sessions)
+// 3. RÉCUPÉRATION DE L'HISTORIQUE DU VISITEUR (Sessions passées et futures)
 $stmt = $db->prepare("
     SELECT bin_to_uuid(id) as other_uuid, started_at 
     FROM telemetry_sessions 
     WHERE visitor_uuid = ? AND id != ? 
-    ORDER BY started_at DESC
+    ORDER BY started_at ASC
 ");
 $stmt->execute([$session['visitor_uuid'], uuid_to_bin($id)]);
 $history = $stmt->fetchAll();
@@ -253,23 +253,52 @@ if ($current_group) {
 
                         <div class="space-y-4 pt-4 border-t border-slate-800/50">
                             <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <i class="fa-solid fa-clock-rotate-left"></i> Sessions liées
+                                <i class="fa-solid fa-clock-rotate-left"></i> Parcours chronologique
                             </p>
-                            <div class="space-y-2 max-h-48 overflow-y-auto custom-scroll pr-2">
-                                <div class="flex items-center justify-between p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
-                                    <span class="text-[10px] font-black text-blue-300"><?= date('d.m à H:i', strtotime($session['started_at'])) ?></span>
-                                    <i class="fa-solid fa-eye text-blue-400 text-xs"></i>
-                                </div>
+                            
+                            <div class="space-y-2 max-h-64 overflow-y-auto custom-scroll pr-2">
+                                <?php 
+                                // On récupère la date de la session actuelle pour la comparer
+                                $current_session_date = $session['started_at'];
+                                $displayed_current = false;
 
-                                <?php foreach ($history as $h): ?>
+                                foreach ($history as $h): 
+                                    // Si on rencontre une session plus récente que l'actuelle dans le tri ASC, 
+                                    // on affiche d'abord l'actuelle pour garder la cohérence temporelle
+                                    if (!$displayed_current && $h['started_at'] > $current_session_date): ?>
+                                        <div class="flex items-center justify-between p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
+                                            <div class="text-[10px]">
+                                                <p class="font-black text-blue-300"><?= date('d.m.Y à H:i', strtotime($current_session_date)) ?></p>
+                                                <p class="text-[8px] text-blue-400/60 uppercase font-bold">Session que vous consultez</p>
+                                            </div>
+                                            <i class="fa-solid fa-eye text-blue-400 text-xs"></i>
+                                        </div>
+                                        <?php $displayed_current = true; ?>
+                                    <?php endif; ?>
+
                                     <a href="?key=<?= $key ?>&module=session_detail&id=<?= $h['other_uuid'] ?>" target="_blank" 
                                     class="flex items-center justify-between p-3 bg-slate-800/30 hover:bg-slate-800 rounded-2xl border border-slate-800 transition group">
-                                        <span class="text-[10px] font-bold text-slate-400 group-hover:text-white"><?= date('d.m à H:i', strtotime($h['started_at'])) ?></span>
+                                        <div class="text-[10px]">
+                                            <p class="font-bold text-slate-400 group-hover:text-white"><?= date('d.m.Y à H:i', strtotime($h['started_at'])) ?></p>
+                                            <p class="text-[8px] text-slate-600 uppercase">Visite passée</p>
+                                        </div>
                                         <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-slate-600 group-hover:text-blue-400"></i>
                                     </a>
                                 <?php endforeach; ?>
+
+                                <?php 
+                                // Si la session actuelle est la plus récente de toutes, on l'affiche à la fin
+                                if (!$displayed_current): ?>
+                                    <div class="flex items-center justify-between p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
+                                        <div class="text-[10px]">
+                                            <p class="font-black text-blue-300"><?= date('d.m.Y à H:i', strtotime($current_session_date)) ?></p>
+                                            <p class="text-[8px] text-blue-400/60 uppercase font-bold">Session que vous consultez</p>
+                                        </div>
+                                        <i class="fa-solid fa-eye text-blue-400 text-xs"></i>
+                                    </div>
+                                <?php endif; ?>
                             </div>
-                        </div>
+                        </div>                        
                     </div>
                 </div>
 
