@@ -238,6 +238,7 @@ $telemetry_sessions = $db->query("
         bin_to_uuid(s.id) as s_id_text,
         s.started_at,
         s.duration_seconds,
+        s.user_agent,
         a.company_name,
         MAX(e.created_at) as last_event_at,
         -- Calcul du Heat Score
@@ -813,7 +814,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                 <div class="grid gap-4">
                     <?php foreach ($telemetry_sessions as $s): ?>
                         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-300 transition flex items-center justify-between group">
-                            <div class="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                            <div class="flex-1 grid grid-cols-1 md:grid-cols-7 gap-4 items-center">
                                 
                                 <div class="flex flex-col items-center border-r border-slate-50 pr-4">
                                     <?php 
@@ -847,7 +848,21 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                     <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Entreprise</p>
                                     <p class="text-sm font-black text-slate-800"><?= htmlspecialchars($s['company_name']) ?></p>
                                 </div>
-
+                                <div class="hidden md:block">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Appareil</p>
+                                    <div class="flex items-center gap-2" title="<?= htmlspecialchars($s['user_agent']) ?>">
+                                        <?php 
+                                            $ua = $s['user_agent']; 
+                                            $icon = "fa-solid fa-laptop"; // Défaut
+                                            if (strpos($ua, 'Mobi') !== false) $icon = "fa-solid fa-mobile-screen-button";
+                                            if (strpos($ua, 'Android') !== false) $icon = "fa-brands fa-android text-green-500";
+                                            if (strpos($ua, 'iPhone') !== false || strpos($ua, 'Macintosh') !== false) $icon = "fa-brands fa-apple";
+                                        ?>
+                                        <i class="<?= $icon ?> text-slate-400"></i>
+                                        <span class="text-[9px] text-slate-500 font-mono truncate max-w-[80px]">
+                                            <?= explode(' ', $ua)[0] ?> </span>
+                                    </div>
+                                </div>
                                 <div class="text-center">
                                     <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Engagement</p>
                                     <div class="flex gap-2 justify-center">
