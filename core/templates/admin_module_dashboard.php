@@ -226,14 +226,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'delete_session') {
-            // 1. Supprimer tous les événements liés à cette session
-            $stmt = $db->prepare("DELETE FROM telemetry_events WHERE session_id = UUID_TO_BIN(?)");
-            $stmt->execute([$_POST['id']]);
-            //2. Supprimer la session elle-même
-            $stmt = $db->prepare("DELETE FROM telemetry_sessions WHERE id = UUID_TO_BIN(?)");
-            $stmt->execute([$_POST['id']]);
-            $message = "✅ Session supprimée.";
-
+            try {
+                $db->beginTransaction();
+                // 1. Supprimer tous les événements liés à cette session
+                $stmt = $db->prepare("DELETE FROM telemetry_events WHERE session_id = UUID_TO_BIN(?)");
+                $stmt->execute([$_POST['id']]);
+                //2. Supprimer la session elle-même
+                $stmt = $db->prepare("DELETE FROM telemetry_sessions WHERE id = UUID_TO_BIN(?)");
+                $stmt->execute([$_POST['id']]);
+                $message = "✅ Session supprimée.";
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                $message = "❌ Erreur critique lors de la suppression de la session : " . $e->getMessage();
+            }
         }
 
         } catch (Exception $e) {
