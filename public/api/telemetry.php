@@ -16,8 +16,7 @@ $data = json_decode($json, true);
 $session_id = $data['sid'] ?? $_SESSION['current_telemetry_id'] ?? null;
 
 if ($data && $session_id) {
-    $db = get_db_connection();
-    $session_id = $_SESSION['current_telemetry_id'];
+    $db = get_db_connection();    
 
     // 1. Log de l'événement précis
     log_event(
