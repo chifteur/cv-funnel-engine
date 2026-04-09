@@ -51,20 +51,23 @@ const CV_Telemetry = {
      */
     trackTextSelection() {
         document.addEventListener('mouseup', () => {
-            const currentSelection = window.getSelection().toString().trim();
+            const selection = window.getSelection();
+            const currentText = selection.toString().trim();
 
-            // Règle : > 5 chars ET différent du dernier log
-            if (currentSelection.length > 5 && currentSelection !== this.lastLoggedSelection) {
-                
-                // On réinitialise le timer à chaque mouvement (Debounce)
+            if (currentText.length > 5 && currentText !== this.lastLoggedSelection) {
                 if (this.selectionTimer) clearTimeout(this.selectionTimer);
 
-                // On attend 15 secondes de calme avant d'envoyer
+                // On cherche la section parente la plus proche
+                // .anchorNode est le point de départ de la sélection
+                const parentSection = selection.anchorNode?.parentElement?.closest('section');
+                const sectionId = parentSection ? parentSection.id : 'unknown_section';
+
                 this.selectionTimer = setTimeout(() => {
-                    this.send('select_text', 'reading_focus', currentSelection);
-                    this.lastLoggedSelection = currentSelection;
-                    console.log("📡 Focus de lecture stabilisé et envoyé.");
-                }, 15000); 
+                    // On inverse : type = reading_focus, el_id = l'id de la section
+                    this.send('reading_focus', sectionId, currentText);
+                    this.lastLoggedSelection = currentText;
+                    console.log(`📡 Focus enregistré dans la section [${sectionId}]`);
+                }, 15000); // Tes 15 secondes validées
             }
         });
     },

@@ -237,15 +237,23 @@ $telemetry_sessions = $db->query("
     SELECT 
         bin_to_uuid(s.id) as s_id_text,
         s.started_at,
-        s.user_agent,
+        s.duration_seconds,
         a.company_name,
         MAX(e.created_at) as last_event_at,
+        -- Calcul du Heat Score
+        SUM(CASE 
+            WHEN e.event_type = 'download' THEN 5
+            WHEN e.event_type = 'reading_focus' THEN 3
+            WHEN e.event_type = 'copy_text' THEN 2
+            WHEN e.event_type = 'view_section' THEN 0.5
+            ELSE 0.1 
+        END) as heat_score,
         SUM(CASE WHEN e.event_type = 'download' THEN 1 ELSE 0 END) as download_count
     FROM telemetry_sessions s
     JOIN applications a ON s.app_id = a.id
     LEFT JOIN telemetry_events e ON s.id = e.session_id
     GROUP BY s.id
-    ORDER BY last_event_at DESC 
+    ORDER BY heat_score DESC, last_event_at DESC 
     LIMIT 50
 ")->fetchAll();
 
@@ -805,45 +813,66 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                 <div class="grid gap-4">
                     <?php foreach ($telemetry_sessions as $s): ?>
                         <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-300 transition flex items-center justify-between group">
-                            <div class="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                            <div class="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
                                 
+                                <div class="flex flex-col items-center border-r border-slate-50 pr-4">
+                                    <?php 
+                                        $score = $s['heat_score'];
+                                        $colorClass = 'bg-slate-100 text-slate-400'; // Froid
+                                        $label = 'Froid';
+
+                                        if ($score > 25) {
+                                            $colorClass = 'bg-red-500 text-white animate-pulse'; // Brûlant
+                                            $label = 'Brûlant';
+                                        } elseif ($score > 12) {
+                                            $colorClass = 'bg-orange-100 text-orange-600'; // Chaud
+                                            $label = 'Chaud';
+                                        } elseif ($score > 5) {
+                                            $colorClass = 'bg-blue-100 text-blue-600'; // Tiède
+                                            $label = 'Tiède';
+                                        }
+                                    ?>
+                                    <div class="<?= $colorClass ?> w-12 h-12 rounded-full flex items-center justify-center text-lg mb-1">
+                                        <i class="fa-solid fa-fire"></i>
+                                    </div>
+                                    <span class="text-[8px] font-black uppercase tracking-tighter"><?= $label ?> (<?= round($score) ?>)</span>
+                                </div>
+
                                 <div>
-                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Début</p>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Consulté le</p>
                                     <p class="text-xs font-bold text-slate-700"><?= date('d F Y / H:i', strtotime($s['started_at'])) ?></p>
                                 </div>
 
-                                <div>
+                                <div class="col-span-1">
                                     <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Entreprise</p>
-                                    <p class="text-sm font-black text-blue-600 uppercase"><?= htmlspecialchars($s['company_name']) ?></p>
-                                </div>
-
-                                <div class="hidden md:block">
-                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Appareil</p>
-                                    <p class="text-[10px] text-slate-500 truncate max-w-[150px]" title="<?= htmlspecialchars($s['user_agent']) ?>">
-                                        <?= str_contains($s['user_agent'], 'Mobi') ? '📱 Mobile' : '💻 Desktop' ?>
-                                    </p>
+                                    <p class="text-sm font-black text-slate-800"><?= htmlspecialchars($s['company_name']) ?></p>
                                 </div>
 
                                 <div class="text-center">
-                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Docs</p>
-                                    <span class="inline-block px-2 py-1 <?= $s['download_count'] > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400' ?> text-xs font-black rounded-lg">
-                                        <?= $s['download_count'] ?> <i class="fa-solid fa-download ml-1"></i>
-                                    </span>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Engagement</p>
+                                    <div class="flex gap-2 justify-center">
+                                        <span class="px-2 py-1 bg-slate-50 text-[10px] font-bold rounded-lg">
+                                            <?= $s['download_count'] ?> <i class="fa-solid fa-file-pdf ml-1"></i>
+                                        </span>
+                                        <span class="px-2 py-1 bg-slate-50 text-[10px] font-bold rounded-lg">
+                                            <?= gmdate("i:s", $s['duration_seconds']) ?> <i class="fa-solid fa-clock ml-1"></i>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="text-right pr-4">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Dernier signe de vie</p>
+                                    <p class="text-xs font-bold text-slate-400 italic"><?= date('H:i:s', strtotime($s['last_event_at'])) ?></p>
                                 </div>
 
                                 <div>
-                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Dernière activité</p>
-                                    <p class="text-xs font-bold text-slate-500 italic"><?= date('H:i:s', strtotime($s['last_event_at'])) ?></p>
+                                    <a href="?key=<?= $key ?>&module=session_detail&id=<?= $s['s_id_text'] ?>" target="_blank"
+                                    class="flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-blue-600 px-4 py-3 rounded-xl transition font-bold text-xs uppercase">
+                                        Analyse <i class="fa-solid fa-magnifying-glass-chart ml-1"></i>
+                                    </a>
                                 </div>
                             </div>
-
-                            <div class="ml-6">
-                                <a href="?key=<?= $key ?>&module=session_detail&id=<?= $s['s_id_text'] ?>" target="_blank"
-                                class="flex items-center gap-2 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white px-4 py-3 rounded-xl transition font-bold text-xs uppercase group-hover:shadow-lg">
-                                    Détails <i class="fa-solid fa-chevron-right"></i>
-                                </a>
-                            </div>
-                        </div>
+                        </div>                        
                     <?php endforeach; ?>
                 </div>
             </div>
