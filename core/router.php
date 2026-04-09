@@ -86,7 +86,7 @@ function dispatch(string $request_uri): void {
                 }
 
                 // Log de l'événement vue
-                log_event($db, $session_id, 'view_section', 'landing', 'Ouverture du CV');
+                log_event($db, $session_id, 'view_section', 'landing', $msg);
                 
                 // Notification Telegram (Optionnel)
                 sendTelegramNotification($msg);
