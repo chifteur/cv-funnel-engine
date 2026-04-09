@@ -70,29 +70,44 @@ function dispatch(string $request_uri): void {
 
         if ($app) {
             try {
-                // Gestion du tracking
-                // Log de la session si c'est le premier hit
-                log_session($db, $session_id, $app['id'], $visitor_uuid);
+                // 1. Détection du changement de contexte (Slug A -> Slug B)
+                if (isset($_SESSION['current_app_id']) && $_SESSION['current_app_id'] !== $app['id']) {
+                    unset($_SESSION['current_telemetry_id']);
+                }
+                
+                $_SESSION['current_app_id'] = $app['id'];
 
-                // On compte combien de sessions ce visiteur a déjà ouvert
-                $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ?");
-                $stmt->execute([$visitor_uuid]);
-                $visit_count = $stmt->fetchColumn();
+                // 2. Initialisation de la session de télémétrie
+                if (!isset($_SESSION['current_telemetry_id'])) {
+                    $new_id = bin_to_uuid(random_bytes(16));
+                    $_SESSION['current_telemetry_id'] = $new_id;
+                    log_session($db, $_SESSION['current_telemetry_id'], $app['id'], $visitor_uuid);
+                }
 
-                if ($visit_count > 0) {
-                    $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°" . ($visit_count + 1) . ")";
+                // --- POINT DE RÉFÉRENCE : On utilise toujours la session de la superglobale ---
+                $active_sid = $_SESSION['current_telemetry_id'];
+
+                // 3. Calcul de la récurrence
+                // On compte les sessions DIFFÉRENTES pour ce visiteur sur CETTE app
+                $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ? AND app_id = ?");
+                $stmt->execute([$visitor_uuid, $app['id']]);
+                $total_sessions = (int)$stmt->fetchColumn();
+
+                // Si le compte est > 1, c'est qu'il y a d'anciennes sessions + celle qu'on vient de créer
+                if ($total_sessions > 1) {
+                    $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°{$total_sessions})";
                 } else {
                     $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
                 }
 
-                // Log de l'événement vue
-                log_event($db, $session_id, 'view_section', 'landing', $msg);
+                // 4. Log de l'événement vue (On utilise $active_sid !)
+                log_event($db, $active_sid, 'view_section', 'landing', 'Ouverture initiale');
                 
-                // Notification Telegram (Optionnel)
+                // Notification Telegram (On envoie le message de récurrence)
                 sendTelegramNotification($msg);
+
             } catch (Exception $e) {
-                // En cas d'erreur, on continue quand même vers la landing page
-                error_log("Erreur lors du logging de la session ou de l'événement : " . $e->getMessage());
+                error_log("Manganese Telemetry Error: " . $e->getMessage());
             }
 
             render_view('cv_interactive', ['app' => $app]);
