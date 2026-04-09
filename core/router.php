@@ -35,9 +35,28 @@ function dispatch(string $request_uri): void {
     $session_id = $_SESSION['current_telemetry_id'];
 
 
-    // 1. Administration Secrète
-    if ($path === 'manage/' . ADMIN_ACCESS_KEY || $path === 'manage/' . ADMIN_ACCESS_KEY . '/') {
-        render_view('admin_dashboard');
+    // 1. Administration Modulaire (manage?key=...&module=...&id=...)
+    if ($path === 'manage') {
+        $providedKey = $_GET['key'] ?? '';
+        
+        // Sécurité : Vérification de la clé
+        if ($providedKey !== ADMIN_ACCESS_KEY) {
+            render_view('public_home');
+            return;
+        }
+
+        // Paramètres
+        $module = $_GET['module'] ?? 'dashboard'; // 'dashboard' par défaut
+        $id = $_GET['id'] ?? null;
+        
+        $view_name = "admin_module_" . $module;
+
+        // Rendu de la vue
+        render_view($view_name, [
+            'module' => $module,
+            'id' => $id,
+            'key' => $providedKey
+        ]);
         return;
     }
 
