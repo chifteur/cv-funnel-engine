@@ -69,26 +69,31 @@ function dispatch(string $request_uri): void {
         $app = $stmt->fetch();
 
         if ($app) {
-            // Gestion du tracking
-            // Log de la session si c'est le premier hit
-            log_session($db, $session_id, $app['id'], $visitor_uuid);
+            try {
+                // Gestion du tracking
+                // Log de la session si c'est le premier hit
+                log_session($db, $session_id, $app['id'], $visitor_uuid);
 
-            // On compte combien de sessions ce visiteur a déjà ouvert
-            $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ?");
-            $stmt->execute([$visitor_uuid]);
-            $visit_count = $stmt->fetchColumn();
+                // On compte combien de sessions ce visiteur a déjà ouvert
+                $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ?");
+                $stmt->execute([$visitor_uuid]);
+                $visit_count = $stmt->fetchColumn();
 
-            if ($visit_count > 0) {
-                $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°" . ($visit_count + 1) . ")";
-            } else {
-                $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
+                if ($visit_count > 0) {
+                    $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°" . ($visit_count + 1) . ")";
+                } else {
+                    $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
+                }
+
+                // Log de l'événement vue
+                log_event($db, $session_id, 'view_section', 'landing', 'Ouverture du CV');
+                
+                // Notification Telegram (Optionnel)
+                sendTelegramNotification($msg);
+            } catch (Exception $e) {
+                // En cas d'erreur, on continue quand même vers la landing page
+                error_log("Erreur lors du logging de la session ou de l'événement : " . $e->getMessage());
             }
-
-            // Log de l'événement vue
-            log_event($db, $session_id, 'view_section', 'landing', 'Ouverture du CV');
-            
-            // Notification Telegram (Optionnel)
-            sendTelegramNotification($msg);
 
             render_view('cv_interactive', ['app' => $app]);
             return;
