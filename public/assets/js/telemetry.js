@@ -5,12 +5,15 @@
 const CV_Telemetry = {
     selectionTimer: null,
     lastLoggedSelection: '',
+    // On garde en mémoire les paliers déjà envoyés pour cette session
+    loggedScrollPaliers: [],    
 
     init() {
-        console.log("🛠️ Manganese Probe: Active");
+        console.log("🛠️ Manganese Probe: Depth tracking active");
         this.trackCopy();
-        this.trackDownloads();
+        //this.trackDownloads();
         this.trackTextSelection();
+        this.trackScrollDepth();
         this.trackHeartbeat();
     },
 
@@ -36,7 +39,7 @@ const CV_Telemetry = {
     /**
      * Capture des clics sur les téléchargements
      */
-    trackDownloads() {
+    /**trackDownloads() {
         document.addEventListener('click', (e) => {
             const link = e.target.closest('.download-link');
             if (link) {
@@ -44,10 +47,10 @@ const CV_Telemetry = {
                 this.send('download', 'file_access', fileName);
             }
         });
-    },
+    },*/
 
     /**
-     * Capture de la sélection (Lecture active) avec délai de 15s
+     * Capture de la sélection (Lecture active) avec délai de 5s
      */
     trackTextSelection() {
         document.addEventListener('mouseup', () => {
@@ -67,10 +70,36 @@ const CV_Telemetry = {
                     this.send('reading_focus', sectionId, currentText);
                     this.lastLoggedSelection = currentText;
                     console.log(`📡 Focus enregistré dans la section [${sectionId}]`);
-                }, 15000); // Tes 15 secondes validées
+                }, 5000); // Tes 5 secondes validées
             }
         });
     },
+
+    /**
+     * Suivi de la profondeur de lecture (Scroll Depth)
+     */
+    trackScrollDepth() {
+        window.addEventListener('scroll', () => {
+            // Calcul du pourcentage de scroll
+            const windowHeight = window.innerHeight;
+            const fullHeight = document.documentElement.scrollHeight;
+            const scrolled = window.scrollY;
+            
+            // Formule : (Position actuelle + Taille écran) / Taille totale
+            const percentage = Math.round(((scrolled + windowHeight) / fullHeight) * 100);
+
+            // On définit les paliers que l'on veut capturer
+            const paliers = [25, 50, 75, 100];
+
+            paliers.forEach(palier => {
+                // Si on a dépassé un palier et qu'on ne l'a pas encore logué
+                if (percentage >= palier && !this.loggedScrollPaliers.includes(palier)) {
+                    this.send('scroll_depth', `${palier}%`, `L'utilisateur a atteint ${palier}% du CV`);
+                    this.loggedScrollPaliers.push(palier);
+                }
+            });
+        }, { passive: true }); // Performance : ne bloque pas le scroll fluide
+    },    
 
     /**
      * Heartbeat pour maintenir la durée de session

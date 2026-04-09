@@ -69,14 +69,26 @@ function dispatch(string $request_uri): void {
         $app = $stmt->fetch();
 
         if ($app) {
-            // On laisse telemetry.js gérer le tracking
+            // Gestion du tracking
             // Log de la session si c'est le premier hit
             log_session($db, $session_id, $app['id'], $visitor_uuid);
+
+            // On compte combien de sessions ce visiteur a déjà ouvert
+            $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ?");
+            $stmt->execute([$visitor_uuid]);
+            $visit_count = $stmt->fetchColumn();
+
+            if ($visit_count > 0) {
+                $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°" . ($visit_count + 1) . ")";
+            } else {
+                $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
+            }
+
             // Log de l'événement vue
             log_event($db, $session_id, 'view_section', 'landing', 'Ouverture du CV');
             
             // Notification Telegram (Optionnel)
-            sendTelegramNotification("🚀 Visite sur le CV : {$app['company_name']}\nSlug: $slug");
+            sendTelegramNotification($msg);
 
             render_view('cv_interactive', ['app' => $app]);
             return;
@@ -103,9 +115,6 @@ function dispatch(string $request_uri): void {
             header('Content-Length: ' . filesize($fullPath));
             header('Content-Disposition: inline; filename="' . basename($fullPath) . '"');
             
-            // Emplacement futur pour ta télémétrie
-            // track_view($decodedPath); 
-
             readfile($fullPath);
             exit;
         } else {

@@ -245,11 +245,14 @@ $telemetry_sessions = $db->query("
         SUM(CASE 
             WHEN e.event_type = 'download' THEN 5
             WHEN e.event_type = 'reading_focus' THEN 3
+            WHEN e.event_type = 'scroll_depth' AND e.element_id = '100%' THEN 4 -- Bonus fin de lecture
+            WHEN e.event_type = 'scroll_depth' THEN 1 -- Petit bonus pour chaque palier
             WHEN e.event_type = 'copy_text' THEN 2
             WHEN e.event_type = 'view_section' THEN 0.5
             ELSE 0.1 
         END) as heat_score,
-        SUM(CASE WHEN e.event_type = 'download' THEN 1 ELSE 0 END) as download_count
+        SUM(CASE WHEN e.event_type = 'download' THEN 1 ELSE 0 END) as download_count,
+        (SELECT COUNT(*) FROM telemetry_sessions s2 WHERE s2.visitor_uuid = s.visitor_uuid) as total_visits
     FROM telemetry_sessions s
     JOIN applications a ON s.app_id = a.id
     LEFT JOIN telemetry_events e ON s.id = e.session_id
@@ -842,6 +845,11 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                 <div>
                                     <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Consulté le</p>
                                     <p class="text-xs font-bold text-slate-700"><?= date('d F Y / H:i', strtotime($s['started_at'])) ?></p>
+                                    <?php if ($s['total_visits'] > 1): ?>
+                                        <span class="bg-purple-100 text-purple-700 text-[9px] font-black px-2 py-0.5 rounded-full ml-2">
+                                            FIDÈLE (<?= $s['total_visits'] ?> vis.)
+                                        </span>
+                                    <?php endif; ?>                                    
                                 </div>
 
                                 <div class="col-span-1">
