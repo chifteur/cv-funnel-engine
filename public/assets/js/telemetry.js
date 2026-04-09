@@ -6,9 +6,12 @@ const CV_Telemetry = {
     selectionTimer: null,
     lastLoggedSelection: '',
     // On garde en mémoire les paliers déjà envoyés pour cette session
-    loggedScrollPaliers: [],    
+    loggedScrollPaliers: [],
+    // On récupère l'ID scellé dans le HTML
+    telemetryId: document.body.dataset.telemetryId,    
 
     init() {
+        if (!this.telemetryId) return; // Sécurité
         console.log("🛠️ Manganese Probe: Depth tracking active");
         this.trackCopy();
         //this.trackDownloads();
@@ -21,7 +24,7 @@ const CV_Telemetry = {
      * Envoi des données via l'API Manganese
      */
     send(type, el_id = '', data = '') {
-        const payload = JSON.stringify({ type, el_id, data });
+        const payload = JSON.stringify({sid: this.telemetryId, type, el_id, data });
         // Utilisation de l'API Beacon pour un envoi asynchrone et fiable
         navigator.sendBeacon('/api/telemetry', payload);
     },

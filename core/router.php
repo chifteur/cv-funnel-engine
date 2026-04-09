@@ -121,7 +121,7 @@ function dispatch(string $request_uri): void {
                 error_log("Manganese Telemetry Error: " . $e->getMessage());
             }
 
-            render_view('cv_interactive', ['app' => $app]);
+            render_view('cv_interactive', ['app' => $app, 'telemetry_id' => $_SESSION['current_telemetry_id']]);
             return;
         }
     }

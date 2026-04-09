@@ -12,7 +12,10 @@ session_start();
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
-if ($data && isset($_SESSION['current_telemetry_id'])) {
+// On utilise l'ID envoyé par le JS (sid) s'il existe, sinon on prend la session
+$session_id = $data['sid'] ?? $_SESSION['current_telemetry_id'] ?? null;
+
+if ($data && $session_id) {
     $db = get_db_connection();
     $session_id = $_SESSION['current_telemetry_id'];
 
