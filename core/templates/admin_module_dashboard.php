@@ -225,6 +225,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        if ($action === 'delete_session') {
+            // 1. Supprimer tous les événements liés à cette session
+            $stmt = $db->prepare("DELETE FROM telemetry_events WHERE session_id = UUID_TO_BIN(?)");
+            $stmt->execute([$_POST['id']]);
+            //2. Supprimer la session elle-même
+            $stmt = $db->prepare("DELETE FROM telemetry_sessions WHERE id = UUID_TO_BIN(?)");
+            $stmt->execute([$_POST['id']]);
+            $message = "✅ Session supprimée.";
+
+        }
+
         } catch (Exception $e) {
         $message = "❌ Erreur SQL : " . $e->getMessage();
     }
@@ -889,10 +900,39 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                 </div>
 
                                 <div>
-                                    <a href="?key=<?= $key ?>&module=session_detail&id=<?= $s['s_id_text'] ?>" target="_blank"
-                                    class="flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-blue-600 px-4 py-3 rounded-xl transition font-bold text-xs uppercase">
-                                        Analyse <i class="fa-solid fa-magnifying-glass-chart ml-1"></i>
-                                    </a>
+                                    <div>
+                                        <a href="?key=<?= $key ?>&module=session_detail&id=<?= $s['s_id_text'] ?>" target="_blank"
+                                        class="flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-blue-600 px-4 py-3 rounded-xl transition font-bold text-xs uppercase">
+                                            Analyse <i class="fa-solid fa-magnifying-glass-chart ml-1"></i>
+                                        </a>
+                                    </div>
+                                    <div class="flex items-center justify-end" x-data="{ confirming: false }">
+                                        <template x-if="!confirming">
+                                            <div class="flex gap-2">
+                                                <button @click="confirming = true" class="text-slate-200 hover:text-red-500 p-2">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </template>
+                                        <template x-if="confirming">
+                                            <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl">
+                                                <span class="text-[9px] font-black text-red-600 uppercase px-2">Supprimer ?</span>
+                                                
+                                                <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                    <input type="hidden" name="action" value="delete_session">
+                                                    <input type="hidden" name="id" value="<?= $s['s_id_text'] ?>">
+                                                    <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm shadow-red-200">
+                                                        OUI
+                                                    </button>
+                                                </form>
+
+                                                <button @click="confirming = false" class="text-slate-400 text-[10px] font-bold hover:text-slate-600 px-2 uppercase tracking-tighter">
+                                                    NON
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>                        
