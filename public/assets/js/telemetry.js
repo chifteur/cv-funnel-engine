@@ -50,7 +50,7 @@ const CV_Telemetry = {
     },*/
 
     /**
-     * Capture de la sélection (Lecture active) avec délai de 5s
+     * Capture de la sélection (Lecture active) avec délai de 2s
      */
     trackTextSelection() {
         document.addEventListener('mouseup', () => {
@@ -70,7 +70,7 @@ const CV_Telemetry = {
                     this.send('reading_focus', sectionId, currentText);
                     this.lastLoggedSelection = currentText;
                     console.log(`📡 Focus enregistré dans la section [${sectionId}]`);
-                }, 5000); // Tes 5 secondes validées
+                }, 2000); // Tes 2 secondes validées
             }
         });
     },

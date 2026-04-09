@@ -57,6 +57,43 @@ foreach ($events as $e) {
 }
 $total_focus = array_sum($focus_stats) ?: 1; // Éviter division par zéro
 ?>
+
+
+<?php
+// On crée un nouveau tableau pour stocker les événements groupés
+$grouped_events = [];
+$current_group = null;
+
+foreach ($events as $event) {
+    // On définit ce qui rend deux événements "identiques" pour le groupement
+    // Ici : même type, même élément et même donnée (ex: heartbeat + keep_alive)
+    if ($current_group && 
+        $current_group['event_type'] === $event['event_type'] && 
+        $current_group['element_id'] === $event['element_id'] && 
+        $current_group['event_data'] === $event['event_data']) {
+        
+        // C'est le même événement à la suite : on incrémente le compteur
+        $current_group['count']++;
+        $current_group['end_time'] = $event['created_at'];
+    } else {
+        // C'est un nouvel événement ou le premier : on enregistre le précédent s'il existe
+        if ($current_group) {
+            $grouped_events[] = $current_group;
+        }
+        
+        // On initialise le nouveau groupe
+        $event['count'] = 1;
+        $event['start_time'] = $event['created_at'];
+        $event['end_time'] = $event['created_at'];
+        $current_group = $event;
+    }
+}
+// On n'oublie pas d'ajouter le dernier groupe après la boucle
+if ($current_group) {
+    $grouped_events[] = $current_group;
+}
+?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -132,29 +169,53 @@ $total_focus = array_sum($focus_stats) ?: 1; // Éviter division par zéro
                 </div>
 
                 <div class="relative timeline-line space-y-6">
-                    <?php foreach ($events as $index => $e): ?>
+                    <?php foreach ($grouped_events as $e): ?>
                         <div class="relative pl-16 group">
                             <?php 
                                 $config = match($e['event_type']) {
                                     'view_section'  => ['icon' => 'fa-eye', 'color' => 'bg-blue-500', 'bg' => 'bg-white'],
                                     'reading_focus' => ['icon' => 'fa-book-open', 'color' => 'bg-purple-500', 'bg' => 'bg-purple-50/50 border-purple-100 border-l-purple-500'],
-                                    'download'      => ['icon' => 'fa-file-pdf', 'color' => 'bg-red-500', 'bg' => 'bg-white border-l-red-500'],
-                                    'copy_text'     => ['icon' => 'fa-copy', 'color' => 'bg-orange-500', 'bg' => 'bg-white border-l-orange-500'],
-                                    default         => ['icon' => 'fa-circle', 'color' => 'bg-slate-300', 'bg' => 'bg-white']
+                                    'download'      => ['icon' => 'fa-file-pdf', 'color' => 'bg-red-500', 'bg' => 'bg-white border-l-red-100 border-l-red-500'],
+                                    'heartbeat'     => ['icon' => 'fa-pulse', 'color' => 'bg-slate-300', 'bg' => 'bg-slate-50 opacity-60'],
+                                    default         => ['icon' => 'fa-circle', 'color' => 'bg-slate-400', 'bg' => 'bg-white']
                                 };
                             ?>
+                            
                             <div class="absolute left-6 top-1 w-4 h-4 rounded-full <?= $config['color'] ?> border-4 border-white shadow-sm z-10"></div>
                             
-                            <div class="<?= $config['bg'] ?> p-4 rounded-2xl border border-slate-100 shadow-sm border-l-4">
+                            <div class="<?= $config['bg'] ?> p-4 rounded-2xl border border-slate-100 shadow-sm border-l-4 transition hover:shadow-md">
                                 <div class="flex justify-between items-start">
-                                    <div>
-                                        <span class="text-[9px] font-black <?= str_replace('bg-', 'text-', $config['color']) ?> uppercase tracking-widest"><?= $e['event_type'] ?></span>
-                                        <?php if($e['element_id']): ?>
-                                            <span class="ml-2 px-1.5 py-0.5 bg-slate-100 text-[8px] font-black rounded text-slate-500 uppercase">#<?= $e['element_id'] ?></span>
-                                        <?php endif; ?>
-                                        <p class="text-sm font-bold text-slate-700 mt-1"><?= htmlspecialchars($e['event_data'] ?: 'Interaction détectée') ?></p>
+                                    <div class="flex items-center gap-3">
+                                        <div>
+                                            <span class="text-[9px] font-black <?= str_replace('bg-', 'text-', $config['color']) ?> uppercase tracking-widest">
+                                                <?= $e['event_type'] ?>
+                                            </span>
+                                            
+                                            <?php if ($e['count'] > 1): ?>
+                                                <span class="ml-2 px-2 py-0.5 bg-slate-900 text-white text-[10px] font-black rounded-full">
+                                                    <?= $e['count'] ?>x
+                                                </span>
+                                            <?php endif; ?>
+
+                                            <?php if($e['element_id']): ?>
+                                                <span class="ml-2 px-1.5 py-0.5 bg-slate-200 text-[8px] font-black rounded text-slate-600 uppercase">#<?= $e['element_id'] ?></span>
+                                            <?php endif; ?>
+                                            
+                                            <p class="text-sm font-bold text-slate-700 mt-1">
+                                                <?= htmlspecialchars($e['event_data'] ?: 'Interaction active') ?>
+                                            </p>
+                                        </div>
                                     </div>
-                                    <span class="text-[10px] font-mono font-bold text-slate-400"><?= date('H:i:s', strtotime($e['created_at'])) ?></span>
+
+                                    <div class="text-right">
+                                        <span class="text-[10px] font-mono font-bold text-slate-400">
+                                            <?php if ($e['count'] > 1): ?>
+                                                <?= date('H:i', strtotime($e['start_time'])) ?> → <?= date('H:i', strtotime($e['end_time'])) ?>
+                                            <?php else: ?>
+                                                <?= date('H:i:s', strtotime($e['start_time'])) ?>
+                                            <?php endif; ?>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
