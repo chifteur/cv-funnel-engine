@@ -233,12 +233,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // --- 2. RÉCUPÉRATION DES DONNÉES ---
 $profile = $db->query("SELECT * FROM profile_settings WHERE id=1")->fetch();
 $apps = $db->query("SELECT a.*, (SELECT GROUP_CONCAT(doc_id) FROM rel_app_doc WHERE app_id = a.id) as doc_ids, (SELECT COUNT(*) FROM telemetry_sessions WHERE app_id = a.id) as visits FROM applications a ORDER BY a.created_at DESC")->fetchAll();
-$telemetry_logs = $db->query("
-    SELECT e.*, a.company_name 
-    FROM telemetry_events e 
-    JOIN telemetry_sessions s ON e.session_id = s.id 
-    JOIN applications a ON s.app_id = a.id 
-    ORDER BY e.created_at DESC LIMIT 20
+$telemetry_sessions = $db->query("
+    SELECT 
+        bin_to_uuid(s.id) as s_id_text,
+        s.started_at,
+        s.user_agent,
+        a.company_name,
+        MAX(e.created_at) as last_event_at,
+        SUM(CASE WHEN e.event_type = 'download' THEN 1 ELSE 0 END) as download_count
+    FROM telemetry_sessions s
+    JOIN applications a ON s.app_id = a.id
+    LEFT JOIN telemetry_events e ON s.id = e.session_id
+    GROUP BY s.id
+    ORDER BY last_event_at DESC 
+    LIMIT 50
 ")->fetchAll();
 
 // --- 3. DONNÉES CV EDITOR (fusionné) ---
@@ -789,13 +797,52 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
             </div>
 
             <div x-show="tab === 'stats'">
-                <h2 class="text-3xl font-black uppercase mb-6">Activité Live</h2>
-                <div class="bg-slate-900 text-blue-400 p-6 rounded-2xl font-mono text-xs shadow-2xl h-[600px] overflow-y-auto">
-                    <?php foreach ($telemetry_logs as $log): ?>
-                        <div class="mb-2 border-b border-slate-800 pb-2">
-                            <span class="text-slate-500">[<?= substr($log['created_at'], 11, 8) ?>]</span> 
-                            <span class="text-white font-bold"><?= $log['company_name'] ?> :</span> 
-                            <?= htmlspecialchars($log['type']) ?> -> <?= htmlspecialchars($log['data']) ?>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-black uppercase">Sessions de Consultation</h2>
+                    <span class="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Temps Réel</span>
+                </div>
+
+                <div class="grid gap-4">
+                    <?php foreach ($telemetry_sessions as $s): ?>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-300 transition flex items-center justify-between group">
+                            <div class="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                                
+                                <div>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Début</p>
+                                    <p class="text-xs font-bold text-slate-700"><?= date('d F Y / H:i', strtotime($s['started_at'])) ?></p>
+                                </div>
+
+                                <div>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Entreprise</p>
+                                    <p class="text-sm font-black text-blue-600 uppercase"><?= htmlspecialchars($s['company_name']) ?></p>
+                                </div>
+
+                                <div class="hidden md:block">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Appareil</p>
+                                    <p class="text-[10px] text-slate-500 truncate max-w-[150px]" title="<?= htmlspecialchars($s['user_agent']) ?>">
+                                        <?= str_contains($s['user_agent'], 'Mobi') ? '📱 Mobile' : '💻 Desktop' ?>
+                                    </p>
+                                </div>
+
+                                <div class="text-center">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Docs</p>
+                                    <span class="inline-block px-2 py-1 <?= $s['download_count'] > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400' ?> text-xs font-black rounded-lg">
+                                        <?= $s['download_count'] ?> <i class="fa-solid fa-download ml-1"></i>
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Dernière activité</p>
+                                    <p class="text-xs font-bold text-slate-500 italic"><?= date('H:i:s', strtotime($s['last_event_at'])) ?></p>
+                                </div>
+                            </div>
+
+                            <div class="ml-6">
+                                <a href="?key=<?= $key ?>&module=session_detail&id=<?= $s['s_id_text'] ?>" target="_blank"
+                                class="flex items-center gap-2 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white px-4 py-3 rounded-xl transition font-bold text-xs uppercase group-hover:shadow-lg">
+                                    Détails <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
