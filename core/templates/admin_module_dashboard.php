@@ -416,13 +416,34 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                     <span class="text-2xl font-black text-slate-800" x-text="app.visits ?? 0"></span>
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</p>
                                 </div>
-                                <div class="flex gap-2">
-                                    <button @click="prepEdit('app', app)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
-                                    <form method="POST" style="display:inline" @submit.prevent="if (confirm('Voulez-vous vraiment supprimer la candidature pour ' + app.company_name + ' ?')) $el.submit()" >
-                                        <input type="hidden" name="action" value="delete_app">
-                                        <input type="hidden" name="id" :value="app.id">
-                                        <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
-                                    </form>
+                                <div class="flex items-center gap-2" x-data="{ confirming: false }">
+                                    <template x-if="!confirming">
+                                        <div class="flex gap-2">
+                                            <button @click="prepEdit('app', app)" class="text-blue-500 hover:text-blue-700 p-2">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
+                                            <button @click="confirming = true" class="text-slate-200 hover:text-red-500 p-2">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <template x-if="confirming">
+                                        <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl">
+                                            <span class="text-[9px] font-black text-red-600 uppercase px-2">Supprimer ?</span>
+                                            
+                                            <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                <input type="hidden" name="action" value="delete_app">
+                                                <input type="hidden" name="id" :value="app.id">
+                                                <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm shadow-red-200">
+                                                    OUI
+                                                </button>
+                                            </form>
+
+                                            <button @click="confirming = false" class="text-slate-400 text-[10px] font-bold hover:text-slate-600 px-2 uppercase tracking-tighter">
+                                                NON
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -503,14 +524,39 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                         </div>
                                         <span class="text-sm font-bold text-slate-400" x-text="exp.period"></span>
                                     </div>
-                                    <div class="flex gap-2">
-                                        <button @click="prepEdit('exp', exp)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
-                                        <form method="POST" style="display:inline" @submit.prevent="if (confirm('Voulez-vous vraiment supprimer l\'expérience ' + exp.role + ' ?')) $el.submit()">
-                                            <input type="hidden" name="action" value="delete_exp">
-                                            <input type="hidden" name="id" :value="exp.id">
-                                            <input type="hidden" name="role" :value="exp.role">
-                                            <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
-                                        </form>
+                                    <div class="flex items-center gap-2" x-data="{ confirming: false }">
+                                        
+                                        <template x-if="!confirming">
+                                            <div class="flex gap-2">
+                                                <button @click="prepEdit('exp', exp)" class="text-blue-500 hover:text-blue-700 p-2 transition">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </button>
+                                                
+                                                <button @click="confirming = true" class="text-slate-200 hover:text-red-500 p-2 transition">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="confirming">
+                                            <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl shadow-inner">
+                                                <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Supprimer ?</span>
+                                                
+                                                <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                    <input type="hidden" name="action" value="delete_exp">
+                                                    <input type="hidden" name="id" :value="exp.id">
+                                                    <input type="hidden" name="role" :value="exp.role">
+                                                    
+                                                    <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm">
+                                                        OUI
+                                                    </button>
+                                                </form>
+
+                                                <button @click="confirming = false" class="text-slate-400 text-[10px] font-bold hover:text-slate-600 px-2">
+                                                    NON
+                                                </button>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -567,13 +613,39 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                     <span class="text-slate-400 text-sm ml-3">@ <?= htmlspecialchars($e['institution']) ?></span>
                                     <span class="text-slate-300 text-xs ml-2"><?= htmlspecialchars($e['year']) ?></span>
                                 </div>
-                                <div class="flex gap-2">
-                                    <button @click="prepEdit('edu', <?= htmlspecialchars(json_encode($e), ENT_QUOTES, 'UTF-8') ?>)" class="text-blue-500 hover:text-blue-700 p-2"><i class="fa-solid fa-pen-to-square"></i></button>
-                                    <form method="POST" style="display:inline">
-                                        <input type="hidden" name="action" value="delete_edu">
-                                        <input type="hidden" name="id" value="<?= $e['id'] ?>">
-                                        <button type="submit" class="text-slate-200 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
-                                    </form>
+                                <div class="flex items-center gap-2" x-data="{ confirming: false }">
+                                    
+                                    <template x-if="!confirming">
+                                        <div class="flex gap-2">
+                                            <button @click="prepEdit('edu', <?= htmlspecialchars(json_encode($e), ENT_QUOTES, 'UTF-8') ?>)" 
+                                                    class="text-blue-500 hover:text-blue-700 p-2 transition">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
+                                            
+                                            <button @click="confirming = true" class="text-slate-200 hover:text-red-500 p-2 transition">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </template>
+
+                                    <template x-if="confirming">
+                                        <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl">
+                                            <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Supprimer ?</span>
+                                            
+                                            <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                <input type="hidden" name="action" value="delete_edu">
+                                                <input type="hidden" name="id" value="<?= $e['id'] ?>">
+                                                
+                                                <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm">
+                                                    OUI
+                                                </button>
+                                            </form>
+
+                                            <button @click="confirming = false" class="text-slate-400 text-[10px] font-bold hover:text-slate-600 px-2">
+                                                NON
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -684,13 +756,33 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                 </div>
                             </div>
                             
-                            <form method="POST" @submit.prevent="if(confirm('Supprimer définitivement ce document et son fichier ?')) $el.submit()">
-                                <input type="hidden" name="action" value="delete_doc">
-                                <input type="hidden" name="id" :value="doc.id">
-                                <button type="submit" class="text-slate-300 hover:text-red-500 p-2 transition">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            </form>
+                            <div x-data="{ confirming: false }" class="flex items-center">
+                                
+                                <template x-if="!confirming">
+                                    <button @click="confirming = true" class="text-slate-300 hover:text-red-500 p-2 transition">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </template>
+
+                                <template x-if="confirming">
+                                    <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl shadow-inner">
+                                        <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Détruire ?</span>
+                                        
+                                        <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                            <input type="hidden" name="action" value="delete_doc">
+                                            <input type="hidden" name="id" :value="doc.id">
+                                            
+                                            <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm">
+                                                OUI
+                                            </button>
+                                        </form>
+
+                                        <button @click="confirming = false" class="text-slate-400 text-[10px] font-bold hover:text-slate-600 px-2 uppercase">
+                                            NON
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
                     </template>
                 </div>
