@@ -77,7 +77,18 @@ function dispatch(string $request_uri): void {
                 
                 $_SESSION['current_app_id'] = $app['id'];
 
-                // 2. Initialisation de la session de télémétrie
+                // 2. VÉRIFICATION DE SURVIE (Le correctif du bug)
+                // Si PHP a un ID en mémoire, on vérifie s'il existe toujours physiquement en BDD
+                if (isset($_SESSION['current_telemetry_id'])) {
+                    $check = $db->prepare("SELECT 1 FROM telemetry_sessions WHERE id = UUID_TO_BIN(?)");
+                    $check->execute([$_SESSION['current_telemetry_id']]);
+                    if (!$check->fetch()) {
+                        // La session a été supprimée de la BDD : on l'efface de PHP pour forcer la recréation
+                        unset($_SESSION['current_telemetry_id']);
+                    }
+                }
+
+                // 3. Initialisation / Recréation de la session
                 if (!isset($_SESSION['current_telemetry_id'])) {
                     $new_id = bin_to_uuid(random_bytes(16));
                     $_SESSION['current_telemetry_id'] = $new_id;
@@ -87,7 +98,7 @@ function dispatch(string $request_uri): void {
                 // --- POINT DE RÉFÉRENCE : On utilise toujours la session de la superglobale ---
                 $active_sid = $_SESSION['current_telemetry_id'];
 
-                // 3. Calcul de la récurrence
+                // 4. Calcul de récurrence (Pour notification)
                 // On compte les sessions DIFFÉRENTES pour ce visiteur sur CETTE app
                 $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ? AND app_id = ?");
                 $stmt->execute([$visitor_uuid, $app['id']]);
@@ -100,7 +111,7 @@ function dispatch(string $request_uri): void {
                     $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
                 }
 
-                // 4. Log de l'événement vue (On utilise $active_sid !)
+                // 5. Log de l'événement vue (On utilise $active_sid !)
                 log_event($db, $active_sid, 'view_section', 'landing', 'Ouverture initiale');
                 
                 // Notification Telegram (On envoie le message de récurrence)
@@ -114,7 +125,7 @@ function dispatch(string $request_uri): void {
             return;
         }
     }
-
+    
     // 3. Service des documents & images (Media Proxy)
     if (str_starts_with($path, 'storage/')) {
         $decodedPath = urldecode($path);
