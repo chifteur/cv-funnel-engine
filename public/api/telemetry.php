@@ -6,7 +6,9 @@ require_once __DIR__ . '/../../core/config.php';
 require_once __DIR__ . '/../../core/tools.php';
 
 // On démarre la session pour récupérer l'ID de session actif
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // On récupère les données JSON envoyées par le Beacon
 $json = file_get_contents('php://input');
