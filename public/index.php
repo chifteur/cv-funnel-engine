@@ -4,13 +4,30 @@
  */
 session_start(); // DOIT ÊTRE ICI, avant tout le reste.
 
-require_once __DIR__ . '/../core/config.php'; // 1. Paramètres (DB, constantes)
-require_once __DIR__ . '/../core/tools.php';  // 2. Utilitaires (UUID, helpers)
-require_once __DIR__ . '/../core/router.php'; // 3. Logique de routage (utilise 1 et 2)
+require_once __DIR__ . '/../core/config.php'; // Paramètres (DB, constantes)
+require_once __DIR__ . '/../core/Logger.php'; // Logger pour les erreurs et le debug
+require_once __DIR__ . '/../core/tools.php';  // Utilitaires (UUID, helpers)
+require_once __DIR__ . '/../core/router.php'; // Logique de routage (utilise 1 et 2)
 
-// Optionnel : Debugging PHP 8.4 pour tes premiers tests
-// ini_set('display_errors', 1); 
-// error_reporting(E_ALL);
+// Gestion centralisée des erreurs et exceptions
+set_error_handler(function ($severity, $message, $file, $line) {
+    Logger::error('PHP Error', compact('severity', 'message', 'file', 'line'));
+});
+
+set_exception_handler(function ($exception) {
+    Logger::error('Uncaught Exception', [
+        'message' => $exception->getMessage(),
+        'file' => $exception->getFile(),
+        'line' => $exception->getLine()
+    ]);
+});
+
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null) {
+        Logger::error('Fatal Error', $error);
+    }
+});
 
 $request = $_SERVER['REQUEST_URI'];
 dispatch($request);

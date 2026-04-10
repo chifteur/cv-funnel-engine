@@ -10,6 +10,9 @@ define('DB_NAME', 'nom de la DB MySQL');
 define('DB_USER', 'username');
 define('DB_PASS', 'passwork');
 
+// Paramètre pour activer le mode debug (affiche les logs DEBUG dans Logger)
+define('DEBUG', false);
+
 // Sécurité
 define('ADMIN_ACCESS_KEY', 'ma clef admin');
 

@@ -27,12 +27,14 @@ function dispatch(string $request_uri): void {
         $last_s = $stmt->fetch();
 
         if ($last_s) {
+            Logger::debug("Restoring existing telemetry session from DB", ['visitor_uuid' => $visitor_uuid, 'session_id' => $last_s['s_id']]);
             $_SESSION['current_telemetry_id'] = $last_s['s_id'];
         } else {
+            Logger::debug("No recent session found in DB, will create new session on demand", ['visitor_uuid' => $visitor_uuid]);
             $_SESSION['current_telemetry_id'] = generate_uuid();
         }
     }
-    $session_id = $_SESSION['current_telemetry_id'];
+    //$session_id = $_SESSION['current_telemetry_id'];
 
 
     // 1. Administration Modulaire (manage?key=...&module=...&id=...)
@@ -73,6 +75,10 @@ function dispatch(string $request_uri): void {
                 // 1. Détection du changement de contexte (Slug A -> Slug B)
                 if (isset($_SESSION['current_app_id']) && $_SESSION['current_app_id'] !== $app['id']) {
                     unset($_SESSION['current_telemetry_id']);
+                    Logger::debug("Slug:{$slug}-Context switch detected: Clearing telemetry session", [
+                        'previous_app_id' => $_SESSION['current_app_id'],
+                        'new_app_id' => $app['id']
+                    ]);
                 }
                 
                 $_SESSION['current_app_id'] = $app['id'];
@@ -84,6 +90,9 @@ function dispatch(string $request_uri): void {
                     $check->execute([$_SESSION['current_telemetry_id']]);
                     if (!$check->fetch()) {
                         // La session a été supprimée de la BDD : on l'efface de PHP pour forcer la recréation
+                        Logger::debug("Slug:{$slug}-Telemetry session ID in PHP not found in DB, unsetting to force recreation", [
+                            'telemetry_id' => $_SESSION['current_telemetry_id']
+                        ]);
                         unset($_SESSION['current_telemetry_id']);
                     }
                 }
@@ -92,22 +101,46 @@ function dispatch(string $request_uri): void {
                 if (!isset($_SESSION['current_telemetry_id'])) {
                     $new_id = bin_to_uuid(random_bytes(16));
                     $_SESSION['current_telemetry_id'] = $new_id;
+                    logger::debug("Slug:{$slug}-Creating new telemetry session", [
+                        'telemetry_id' => $new_id,
+                        'app_id' => $app['id'],
+                        'visitor_uuid' => $visitor_uuid
+                    ]);
                     log_session($db, $_SESSION['current_telemetry_id'], $app['id'], $visitor_uuid);
                 }
 
                 // --- POINT DE RÉFÉRENCE : On utilise toujours la session de la superglobale ---
                 $active_sid = $_SESSION['current_telemetry_id'];
+                logger::debug("Slug:{$slug}-Active telemetry session ready", [
+                    'active_sid' => $active_sid,
+                    'app_id' => $app['id'],
+                    'visitor_uuid' => $visitor_uuid
+                ]);
 
                 // 4. Calcul de récurrence (Pour notification)
                 // On compte les sessions DIFFÉRENTES pour ce visiteur sur CETTE app
                 $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ? AND app_id = ?");
                 $stmt->execute([$visitor_uuid, $app['id']]);
                 $total_sessions = (int)$stmt->fetchColumn();
+                logger::debug("Slug:{$slug}-Visitor session count for app", [
+                    'visitor_uuid' => $visitor_uuid,
+                    'app_id' => $app['id'],
+                    'total_sessions' => $total_sessions
+                ]);
 
                 // Si le compte est > 1, c'est qu'il y a d'anciennes sessions + celle qu'on vient de créer
                 if ($total_sessions > 1) {
+                    logger::debug("Slug:{$slug}-Returning visitor detected", [
+                        'visitor_uuid' => $visitor_uuid,
+                        'app_id' => $app['id'],
+                        'total_sessions' => $total_sessions
+                    ]);
                     $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°{$total_sessions})";
                 } else {
+                    logger::debug("Slug:{$slug}-First time visitor detected", [
+                        'visitor_uuid' => $visitor_uuid,
+                        'app_id' => $app['id']
+                    ]);
                     $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
                 }
 
@@ -118,7 +151,11 @@ function dispatch(string $request_uri): void {
                 sendTelegramNotification($msg);
 
             } catch (Exception $e) {
-                error_log("Manganese Telemetry Error: " . $e->getMessage());
+                // error_log("Manganese Telemetry Error: " . $e->getMessage());
+                Logger::error("Slug:{$slug}-Error during telemetry handling", [
+                    'error_message' => $e->getMessage(),
+                    'stack_trace' => $e->getTraceAsString()
+                ]);
             }
 
             render_view('cv_interactive', ['app' => $app, 'telemetry_id' => $_SESSION['current_telemetry_id']]);
