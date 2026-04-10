@@ -398,15 +398,21 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                 <button @click="tab = 'stats'" :class="tab === 'stats' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-bolt w-5"></i> Télémétrie
                 </button>
+                <div class="pt-4 pb-2 border-t border-slate-800 mt-4">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Système & Debug</p>
+                </div>
+
+                <a href="?key=<?= $key ?>&module=logs" target="_blank" 
+                class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-terminal w-5 text-blue-400"></i> Journal Logs
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
+                </a>
+
                 <button @click="tab = 'debug'" :class="tab === 'debug' ? 'bg-red-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
-                    <i class="fa-solid fa-bug w-5"></i> Debug
-                </button>
-                <div>
-                    <a href="?key=<?= $key ?>&module=logs" target="_blank"
-                    class="flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-blue-600 px-4 py-3 rounded-xl transition font-bold text-xs uppercase">
-                        Logs <i class="fa-solid fa-magnifying-glass-chart ml-1"></i>
-                    </a>
-                </div>                
+                    <i class="fa-solid fa-bug w-5"></i> Debug Interne
+                </button>       
             </nav>
         </aside>
 
