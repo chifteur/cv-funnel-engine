@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) {
                 $db->rollBack();
                 $message = "❌ Erreur critique : " . $e->getMessage();
+                Logger::error("Error in add_app action", ['exception' => $e->getMessage(), 'post_data' => $_POST]);
             }
         }
         if ($action === 'update_app') {
@@ -71,16 +72,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) {
                 $db->rollBack();
                 $message = "❌ Erreur critique : " . $e->getMessage();
+                Logger::error("Error in update_app action", ['exception' => $e->getMessage(), 'post_data' => $_POST]);
             }
         }
         if ($action === 'delete_app') {
-            // 1. On supprime les anciens liens
-            $stmt = $db->prepare("DELETE FROM rel_app_doc WHERE app_id = ?");
-            $stmt->execute([$_POST['id']]);
+            try {
+                $db->beginTransaction();            
+                // On supprime les evénements du CRM liés à cette application
+                $stmt = $db->prepare("DELETE FROM crm_events WHERE app_id = ?");
+                $stmt->execute([$_POST['id']]);
 
-            $stmt = $db->prepare("DELETE FROM applications WHERE id = ?");
-            $stmt->execute([$_POST['id']]);
-            $message = "✅ Candidature et documents liés supprimés.";
+                // On supprime les anciens liens
+                $stmt = $db->prepare("DELETE FROM rel_app_doc WHERE app_id = ?");
+                $stmt->execute([$_POST['id']]);
+
+                $stmt = $db->prepare("DELETE FROM applications WHERE id = ?");
+                $stmt->execute([$_POST['id']]);
+                $message = "✅ Candidature, documents et événements CRM liés supprimés.";
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                $message = "❌ Erreur critique : " . $e->getMessage();
+                Logger::error("Error in delete_app action", ['exception' => $e->getMessage(), 'post_data' => $_POST]);
+            }
+
         }
 
         // --- CRUD CV : EXPÉRIENCES ---
@@ -239,11 +254,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) {
                 $db->rollBack();
                 $message = "❌ Erreur critique lors de la suppression de la session : " . $e->getMessage();
+                Logger::error("Error in delete_session action", ['exception' => $e->getMessage(), 'post_data' => $_POST]);
             }
         }
 
         } catch (Exception $e) {
         $message = "❌ Erreur SQL : " . $e->getMessage();
+        Logger::error("SQL Error", ['exception' => $e->getMessage(), 'post_data' => $_POST]);
     }
 }
 
@@ -465,17 +482,16 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                     <span class="text-2xl font-black text-slate-800" x-text="app.visits ?? 0"></span>
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</p>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <a :href="'?key=<?= $key ?>&module=crm&app_id=' + app.id" 
-                                    target="_blank" 
-                                    class="bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white w-10 h-10 rounded-xl transition flex items-center justify-center group"
-                                    title="Ouvrir le suivi CRM">
-                                        <i class="fa-solid fa-briefcase text-sm"></i>
-                                    </a>
-                                </div>
+
                                 <div class="flex items-center gap-2" x-data="{ confirming: false }">
                                     <template x-if="!confirming">
-                                        <div class="flex gap-2">
+                                        <div class="flex gap-1 items-center">
+                                            <a :href="'?key=<?= $key ?>&module=crm&app_id=' + app.id" 
+                                                target="_blank" 
+                                                class="text-emerald-600 hover:text-emerald-700 p-2 transition-colors"
+                                                title="Ouvrir le suivi CRM">
+                                                <i class="fa-solid fa-briefcase"></i>
+                                            </a>
                                             <button @click="prepEdit('app', app)" class="text-blue-500 hover:text-blue-700 p-2">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </button>
