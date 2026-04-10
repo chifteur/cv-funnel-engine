@@ -16,10 +16,13 @@ if ($app_id) {
 
 // 2. SAUVEGARDE D'UN ÉVÉNEMENT
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_event') {
+    // On convertit le format HTML (T) vers le format SQL (Espace)
+    $event_date = str_replace('T', ' ', $_POST['event_date']);
+
     $stmt = $db->prepare("INSERT INTO crm_events (app_id, event_date, type, comment, next_action) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([
         $app_id,
-        $_POST['event_date'] ?: date('Y-m-d H:i:s'),
+        $event_date,
         $_POST['type'],
         $_POST['comment'],
         $_POST['next_action']
@@ -154,7 +157,7 @@ $type_icons = [
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-black text-slate-500 uppercase px-2">Date</label>
-                        <input type="datetime-local" name="event_date" value="<?= date('Y-m-d\TH:i') ?>" class="w-full bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-3 text-slate-900 outline-none">
+                        <input type="datetime-local" name="event_date" x-init="$el.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)" class="w-full bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-3 text-slate-900 outline-none">
                     </div>
                     <div class="col-span-2 space-y-1">
                         <label class="text-[10px] font-black text-slate-500 uppercase px-2">Commentaires</label>
