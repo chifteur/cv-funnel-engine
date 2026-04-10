@@ -107,6 +107,36 @@ function dispatch(string $request_uri): void {
                         'visitor_uuid' => $visitor_uuid
                     ]);
                     log_session($db, $_SESSION['current_telemetry_id'], $app['id'], $visitor_uuid);
+
+                    // Calcul de récurrence (Pour notification)
+                    // On compte les sessions DIFFÉRENTES pour ce visiteur sur CETTE app
+                    $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ? AND app_id = ?");
+                    $stmt->execute([$visitor_uuid, $app['id']]);
+                    $total_sessions = (int)$stmt->fetchColumn();
+                    logger::debug("Slug:{$slug}-Visitor session count for app", [
+                        'visitor_uuid' => $visitor_uuid,
+                        'app_id' => $app['id'],
+                        'total_sessions' => $total_sessions
+                    ]);
+
+                    // Si le compte est > 1, c'est qu'il y a d'anciennes sessions + celle qu'on vient de créer
+                    if ($total_sessions > 1) {
+                        logger::debug("Slug:{$slug}-Returning visitor detected", [
+                            'visitor_uuid' => $visitor_uuid,
+                            'app_id' => $app['id'],
+                            'total_sessions' => $total_sessions
+                        ]);
+                        $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°{$total_sessions})";
+                    } else {
+                        logger::debug("Slug:{$slug}-First time visitor detected", [
+                            'visitor_uuid' => $visitor_uuid,
+                            'app_id' => $app['id']
+                        ]);
+                        $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
+                    }
+
+                    // Notification Telegram (On envoie le message de récurrence)
+                    sendTelegramNotification($msg);                    
                 }
 
                 // --- POINT DE RÉFÉRENCE : On utilise toujours la session de la superglobale ---
@@ -117,38 +147,10 @@ function dispatch(string $request_uri): void {
                     'visitor_uuid' => $visitor_uuid
                 ]);
 
-                // 4. Calcul de récurrence (Pour notification)
-                // On compte les sessions DIFFÉRENTES pour ce visiteur sur CETTE app
-                $stmt = $db->prepare("SELECT COUNT(*) FROM telemetry_sessions WHERE visitor_uuid = ? AND app_id = ?");
-                $stmt->execute([$visitor_uuid, $app['id']]);
-                $total_sessions = (int)$stmt->fetchColumn();
-                logger::debug("Slug:{$slug}-Visitor session count for app", [
-                    'visitor_uuid' => $visitor_uuid,
-                    'app_id' => $app['id'],
-                    'total_sessions' => $total_sessions
-                ]);
 
-                // Si le compte est > 1, c'est qu'il y a d'anciennes sessions + celle qu'on vient de créer
-                if ($total_sessions > 1) {
-                    logger::debug("Slug:{$slug}-Returning visitor detected", [
-                        'visitor_uuid' => $visitor_uuid,
-                        'app_id' => $app['id'],
-                        'total_sessions' => $total_sessions
-                    ]);
-                    $msg = "🔥 ALERTE RETOUR : {$app['company_name']} est de retour sur ton CV ! (Visite n°{$total_sessions})";
-                } else {
-                    logger::debug("Slug:{$slug}-First time visitor detected", [
-                        'visitor_uuid' => $visitor_uuid,
-                        'app_id' => $app['id']
-                    ]);
-                    $msg = "🚀 PREMIÈRE VISITE : {$app['company_name']} découvre ton CV.";
-                }
-
-                // 5. Log de l'événement vue (On utilise $active_sid !)
+                // Log de l'événement vue (On utilise $active_sid !)
                 log_event($db, $active_sid, 'view_section', 'landing', 'Ouverture initiale');
                 
-                // Notification Telegram (On envoie le message de récurrence)
-                sendTelegramNotification($msg);
 
             } catch (Exception $e) {
                 // error_log("Manganese Telemetry Error: " . $e->getMessage());

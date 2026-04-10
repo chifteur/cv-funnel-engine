@@ -5,7 +5,7 @@
 session_start(); // DOIT ÊTRE ICI, avant tout le reste.
 
 require_once __DIR__ . '/../core/config.php'; // Paramètres (DB, constantes)
-require_once __DIR__ . '/../core/Logger.php'; // Logger pour les erreurs et le debug
+require_once __DIR__ . '/../core/logger.php'; // Logger pour les erreurs et le debug
 require_once __DIR__ . '/../core/tools.php';  // Utilitaires (UUID, helpers)
 require_once __DIR__ . '/../core/router.php'; // Logique de routage (utilise 1 et 2)
 

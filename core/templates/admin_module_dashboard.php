@@ -274,7 +274,7 @@ $telemetry_sessions = $db->query("
     JOIN applications a ON s.app_id = a.id
     LEFT JOIN telemetry_events e ON s.id = e.session_id
     GROUP BY s.id
-    ORDER BY heat_score DESC, last_event_at DESC 
+    ORDER BY started_at DESC 
     LIMIT 50
 ")->fetchAll();
 
@@ -401,6 +401,12 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                 <button @click="tab = 'debug'" :class="tab === 'debug' ? 'bg-red-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-bug w-5"></i> Debug
                 </button>
+                <div>
+                    <a href="?key=<?= $key ?>&module=logs" target="_blank"
+                    class="flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-blue-600 px-4 py-3 rounded-xl transition font-bold text-xs uppercase">
+                        Logs <i class="fa-solid fa-magnifying-glass-chart ml-1"></i>
+                    </a>
+                </div>                
             </nav>
         </aside>
 
