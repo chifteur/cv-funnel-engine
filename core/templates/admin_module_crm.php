@@ -37,6 +37,35 @@ if ($app_id) {
     $events = $stmt->fetchAll();
 }
 
+// --- STATS TÉLÉMÉTRIE POUR CETTE APP ---
+$telemetry_stats = null;
+$last_telemetry_events = [];
+
+if ($app_id) {
+    // 1. Stats globales (Nombre de visites, temps total)
+    $stmt = $db->prepare("
+        SELECT 
+            COUNT(*) as total_visits,
+            SUM(duration_seconds) as total_time,
+            MAX(started_at) as last_seen
+        FROM telemetry_sessions 
+        WHERE app_id = ?
+    ");
+    $stmt->execute([$app_id]);
+    $telemetry_stats = $stmt->fetch();
+
+    // 2. Les 3 dernières actions "fortes" (Téléchargements ou focus)
+    $stmt = $db->prepare("
+        SELECT e.*, s.started_at 
+        FROM telemetry_events e
+        JOIN telemetry_sessions s ON e.session_id = s.id
+        WHERE s.app_id = ? AND e.event_type IN ('download', 'view_section', 'copy_text')
+        ORDER BY e.id DESC LIMIT 3
+    ");
+    $stmt->execute([$app_id]);
+    $last_telemetry_events = $stmt->fetchAll();
+}
+
 $type_icons = [
     'Email' => 'fa-envelope text-blue-400',
     'Téléphone' => 'fa-phone text-green-400',
@@ -74,16 +103,38 @@ $type_icons = [
             </div>
         <?php else: ?>
 
-            <header class="flex justify-between items-start mb-10">
-                <div>
+            <header class="flex justify-between items-end mb-8">
+                <div class="flex-1">
                     <div class="flex items-center gap-3 mb-2">
                         <span class="bg-blue-600/20 text-blue-500 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-blue-500/20">CRM Pipeline</span>
-                        <span class="text-slate-700 text-[10px] font-mono">APP_ID: <?= $app_id ?></span>
+                        
+                        <?php if ($telemetry_stats['total_visits'] > 0): ?>
+                            <span class="bg-emerald-500/10 text-emerald-500 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-emerald-500/20 animate-pulse">
+                                ● Live Activity
+                            </span>
+                        <?php endif; ?>
                     </div>
                     <h1 class="text-4xl font-black text-white tracking-tighter italic"><?= htmlspecialchars($current_app['company_name']) ?></h1>
-                    <p class="text-slate-500 font-bold"><?= htmlspecialchars($current_app['job_title']) ?></p>
+                    
+                    <div class="flex gap-6 mt-4">
+                        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 px-4">
+                            <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Visites</p>
+                            <p class="text-xl font-black text-white"><?= $telemetry_stats['total_visits'] ?? 0 ?></p>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 px-4">
+                            <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Temps total</p>
+                            <p class="text-xl font-black text-white"><?= ceil(($telemetry_stats['total_time'] ?? 0) / 60) ?> <span class="text-xs text-slate-600">min</span></p>
+                        </div>
+                        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 px-4">
+                            <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Dernière vue</p>
+                            <p class="text-sm font-bold text-blue-400 mt-1">
+                                <?= $telemetry_stats['last_seen'] ? date('d.m.Y @ H:i', strtotime($telemetry_stats['last_seen'])) : 'Jamais' ?>
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <button @click="showForm = !showForm" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-black transition flex items-center gap-2 shadow-lg shadow-blue-900/40">
+                
+                <button @click="showForm = !showForm" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black transition-all flex items-center gap-3 shadow-xl shadow-blue-900/20">
                     <i class="fa-solid fa-plus"></i> <span x-text="showForm ? 'ANNULER' : 'LOG INTERACTION'"></span>
                 </button>
             </header>
@@ -118,13 +169,32 @@ $type_icons = [
             </div>
 
             <div class="space-y-4">
+                <?php if (!empty($last_telemetry_events)): ?>
+                    <div class="mb-8 space-y-2 opacity-60 hover:opacity-100 transition-opacity">
+                        <p class="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-4 mb-3">Activités récentes détectées</p>
+                        <?php foreach ($last_telemetry_events as $te): ?>
+                            <div class="flex items-center gap-4 bg-slate-900/20 border border-dashed border-slate-800 p-3 rounded-2xl ml-4">
+                                <div class="text-blue-500 text-xs w-5 text-center <?= (strtotime($te['started_at']) > strtotime('-10 minutes')) ? 'animate-pulse' : '' ?>">
+                                    <i class="fa-solid <?= $te['event_type'] === 'download' ? 'fa-file-arrow-down' : 'fa-eye' ?>"></i>
+                                </div>
+                                <div class="flex-1 text-[11px]">
+                                    <span class="text-slate-400">Le recruteur a </span>
+                                    <span class="font-bold text-slate-200">
+                                        <?= $te['event_type'] === 'download' ? "téléchargé {$te['element_id']}" : "consulté la section {$te['element_id']}" ?>
+                                    </span>
+                                </div>
+                                <div class="text-[9px] font-mono text-slate-700"><?= date('H:i', strtotime($te['started_at'])) ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>                
                 <?php if (empty($events)): ?>
                     <div class="p-16 text-center border-2 border-dashed border-slate-900 rounded-3xl">
                         <i class="fa-solid fa-box-open text-slate-800 text-3xl mb-4"></i>
                         <p class="text-slate-600 font-bold italic tracking-tight">Aucune interaction enregistrée pour <?= htmlspecialchars($current_app['company_name']) ?>.</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($events as $event): ?>
+                    <?php foreach ($events as $event): ?>                        
                         <div class="bg-slate-900/40 border border-slate-800/60 p-5 rounded-3xl hover:border-slate-700 transition group">
                             <div class="flex justify-between items-center mb-3">
                                 <div class="flex items-center gap-3">
