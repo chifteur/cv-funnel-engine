@@ -13,6 +13,7 @@ const CV_Telemetry = {
     init() {
         if (!this.telemetryId) return; // Sécurité
         console.log("🛠️ Manganese Probe: Depth tracking active");
+        console.log(`🔐 Telemetry ID: ${this.telemetryId}`);
         this.trackCopy();
         //this.trackDownloads();
         this.injectSidInLinks();

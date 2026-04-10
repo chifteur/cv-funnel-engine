@@ -44,7 +44,7 @@ foreach ($cv_skills as $skill) {
         .hero-gradient { background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 antialiased font-sans leading-normal" data-telemetry-id="<?= $telemetry_id ?>>
+<body class="bg-gray-50 text-gray-900 antialiased font-sans leading-normal" data-telemetry-id="<?= $telemetry_id ?>">
 
     <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
         <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
