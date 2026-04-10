@@ -73,14 +73,14 @@ if ($app_id) {
 }
 
 $type_icons = [
-    'Email' => 'fa-envelope text-blue-500',
-    'Téléphone' => 'fa-phone text-emerald-500',
+    'Email' => 'fa-solid fa-envelope text-blue-600',
+    'Téléphone' => 'fa-solid fa-phone text-emerald-600',
     'LinkedIn' => 'fa-brands fa-linkedin text-blue-700',
-    'Entretien 1' => 'fa-comments text-purple-500',
-    'Entretien 2' => 'fa-users text-purple-600',
-    'Assessment' => 'fa-file-code text-orange-500',
-    'Offre' => 'fa-handshake text-yellow-600',
-    'Refus' => 'fa-circle-xmark text-red-500'
+    'Entretien 1' => 'fa-solid fa-comments text-purple-600',
+    'Entretien 2' => 'fa-solid fa-users text-purple-700',
+    'Assessment' => 'fa-solid fa-file-code text-orange-600',
+    'Offre' => 'fa-solid fa-handshake text-yellow-600',
+    'Refus' => 'fa-solid fa-circle-xmark text-red-600'
 ];
 ?>
 <!DOCTYPE html>
@@ -196,28 +196,32 @@ $type_icons = [
                 </div>
             <?php else: ?>
                 <?php foreach ($crm_events as $event): ?>                        
-                    <div class="bg-slate-900/40 border border-slate-200 shadow-sm/60 p-5 rounded-3xl hover:border-slate-700 transition group">
-                    <div class="flex justify-between items-center mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-200 shadow-sm">
-                                <i class="fa-solid <?= $type_icons[$event['type']] ?? 'fa-calendar' ?>"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-black text-slate-900 text-sm"><?= $event['type'] ?></h3>
-                                <p class="text-[10px] text-slate-600 font-mono"><?= date('d.m.Y @ H:i', strtotime($event['event_date'])) ?></p>
-                            </div>
+                    <div class="bg-white border border-slate-200 p-6 rounded-3xl hover:shadow-md transition-shadow group mb-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100">
+                                    <i class="<?= $type_icons[$event['type']] ?? 'fa-solid fa-calendar' ?> text-lg"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-black text-slate-900 text-sm uppercase tracking-tight"><?= $event['type'] ?></h3>
+                                    <p class="text-[10px] text-slate-400 font-bold"><?= date('d.m.Y @ H:i', strtotime($event['event_date'])) ?></p>
+                                </div>
                             </div>
                         </div>
-                        <div class="text-sm text-slate-500 mb-4 px-2">
+                        
+                        <div class="text-sm text-slate-600 mb-4 px-2 leading-relaxed font-medium">
                             <?= nl2br(htmlspecialchars($event['comment'])) ?>
                         </div>
-                    <?php if ($event['next_action']): ?>
-                        <div class="bg-blue-500/5 border border-blue-500/10 p-3 rounded-2xl flex items-center gap-3">
-                            <i class="fa-solid fa-arrow-right text-blue-600 text-[10px]"></i>
-                            <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest">NEXT : <?= htmlspecialchars($event['next_action']) ?></span>
-                        </div>
-                    <?php endif; ?>
-                </div>
+
+                        <?php if ($event['next_action']): ?>
+                            <div class="bg-blue-50 border border-blue-100 p-3 px-4 rounded-2xl flex items-center gap-3">
+                                <i class="fa-solid fa-arrow-right text-blue-500 text-[10px]"></i>
+                                <span class="text-[10px] font-black text-blue-700 uppercase tracking-widest">
+                                    NEXT : <?= htmlspecialchars($event['next_action']) ?>
+                                </span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         <?php endif; ?>
