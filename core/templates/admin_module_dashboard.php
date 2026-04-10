@@ -465,6 +465,14 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                                     <span class="text-2xl font-black text-slate-800" x-text="app.visits ?? 0"></span>
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</p>
                                 </div>
+                                <div class="flex items-center gap-2">
+                                    <a href="?key=<?= $key ?>&module=crm&app_id=<?= $app['id'] ?>" 
+                                    target="_blank" 
+                                    class="bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white w-10 h-10 rounded-xl transition flex items-center justify-center group"
+                                    title="Ouvrir le suivi CRM">
+                                        <i class="fa-solid fa-briefcase text-sm"></i>
+                                    </a>
+                                </div>
                                 <div class="flex items-center gap-2" x-data="{ confirming: false }">
                                     <template x-if="!confirming">
                                         <div class="flex gap-2">
