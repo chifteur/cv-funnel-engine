@@ -295,6 +295,20 @@ $telemetry_sessions = $db->query("
     LIMIT 50
 ")->fetchAll();
 
+$orphelines_sessions = $db->query("
+SELECT 
+    bin_to_uuid(s.id) as s_id_text,
+    s.started_at,
+    s.duration_seconds,
+    s.app_id as orphan_app_id, -- L'ID qui n'existe plus
+    s.user_agent,
+    (SELECT COUNT(*) FROM telemetry_events e WHERE e.session_id = s.id) as events_count
+FROM telemetry_sessions s
+LEFT JOIN applications a ON s.app_id = a.id
+WHERE a.id IS NULL
+ORDER BY s.started_at DESC;
+")->fetchAll();
+
 // --- 3. DONNÉES CV EDITOR (fusionné) ---
 $cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY display_order ASC, id DESC")->fetchAll();
 $cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll();
@@ -980,6 +994,59 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetch
                         </div>                        
                     <?php endforeach; ?>
                 </div>
+                <?php if (!empty($orphelines_sessions)): ?>
+                <div class="mt-12 pt-8 border-t border-slate-200">
+                    <div class="flex items-center gap-3 mb-6 ml-2">
+                        <h2 class="text-xs font-black text-amber-600 uppercase tracking-[0.3em]">Sessions Orphelines</h2>
+                        <span class="bg-amber-100 text-amber-700 text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-200">
+                            APPS SUPPRIMÉES
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-2">
+                        <?php foreach ($orphelines_sessions as $s): ?>
+                            <div class="flex items-center justify-between bg-white border border-slate-200 p-3 px-6 rounded-2xl hover:bg-amber-50/30 transition group shadow-sm">
+                                <div class="flex items-center gap-8">
+                                    <div class="w-24">
+                                        <div class="text-[11px] font-black text-slate-900"><?= date('d.m.Y', strtotime($s['started_at'])) ?></div>
+                                        <div class="text-[10px] font-bold text-slate-400 italic"><?= date('H:i:s', strtotime($s['started_at'])) ?></div>
+                                    </div>
+
+                                    <div class="hidden md:block">
+                                        <p class="text-[9px] font-black text-slate-400 uppercase mb-0.5">Ancien ID App</p>
+                                        <code class="text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-600 font-mono">
+                                            <?= $s['orphan_app_id'] ?>
+                                        </code>
+                                    </div>
+
+                                    <div class="flex gap-3">
+                                        <div class="text-[10px] font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                                            <?= $s['duration_seconds'] ?>s
+                                        </div>
+                                        <div class="text-[10px] font-black text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                                            <?= $s['events_count'] ?> events
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center gap-4">
+                                    <span class="hidden group-hover:block text-[9px] font-bold text-amber-600 uppercase tracking-tighter">Candidature inexistante</span>
+                                    <a href="?key=<?= $key ?>&module=query_explorer&sql_key=orphan_events&session_id=<?= $s['s_id_text'] ?>" 
+                                    target="_blank"
+                                    class="text-[10px] font-black text-amber-600 hover:text-blue-600 uppercase tracking-widest transition flex items-center gap-2">
+                                        Voir Événements <i class="fa-solid fa-magnifying-glass-chart text-[9px]"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                    <p class="mt-4 ml-4 text-[10px] text-slate-400 italic">
+                        <i class="fa-solid fa-info-circle mr-1"></i> 
+                        Ces sessions appartiennent à des entreprises que tu as supprimées de ta base de données.
+                    </p>
+                </div>
+                <?php endif; ?>                
             </div>
 
             <!-- DEBUG TAB -->
