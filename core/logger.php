@@ -10,7 +10,8 @@ class Logger
             mkdir(self::$logDir, 0755, true);
         }
 
-        $date = date('Y-m-d H:i:s');
+        $now = new DateTime();
+        $date = $now->format('Y-m-d H:i:s.v');
 
         $contextStr = '';
         if (!empty($context)) {
