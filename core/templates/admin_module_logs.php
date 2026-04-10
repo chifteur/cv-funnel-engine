@@ -21,9 +21,12 @@ if (isset($_POST['action']) && $_POST['action'] === 'clear_logs') {
 
 $lines = [];
 if (file_exists($logFile)) {
+    // On récupère les lignes et on les inverse
     $lines = array_reverse(file($logFile));
 }
 
+// On initialise le compteur pour les numéros de ligne
+$currentLineNum = count($lines);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -36,71 +39,60 @@ if (file_exists($logFile)) {
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'JetBrains Mono', monospace; }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #111827; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #0a0a0a; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #222; }
     </style>
 </head>
-<body class="bg-gray-950 text-slate-300 p-6 custom-scroll">
+<body class="bg-[#050505] text-slate-400 p-4 custom-scroll">
 
-    <div class="max-w-6xl mx-auto" x-data="{ confirming: false }">
+    <div class="max-w-full mx-auto" x-data="{ confirming: false }">
         
-        <div class="flex justify-between items-center mb-8 bg-gray-900 p-4 rounded-2xl border border-gray-800 shadow-xl">
-            <div class="flex items-center gap-4">
-                <div class="w-10 h-10 bg-green-500/10 text-green-400 rounded-xl flex items-center justify-center border border-green-500/20">
-                    <i class="fa-solid fa-terminal"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold text-white tracking-tight">System Logs</h1>
-                    <p class="text-[10px] text-slate-500 uppercase font-black tracking-widest">app.log • <?= count($lines) ?> entrées</p>
-                </div>
+        <div class="flex justify-between items-center mb-4 bg-gray-900/50 p-2 px-4 rounded-lg border border-gray-800">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-terminal text-blue-500 text-xs"></i>
+                <h1 class="text-sm font-bold text-white uppercase tracking-tighter">System Logs</h1>
+                <span class="text-[10px] text-slate-600 font-mono">/app.log (<?= count($lines) ?>)</span>
             </div>
 
-            <div class="flex items-center gap-2">
-                <button 
-                    x-show="!confirming" 
-                    @click="confirming = true"
-                    class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-xl border border-red-500/20 transition-all flex items-center gap-2 font-bold text-sm"
-                >
+            <div class="flex items-center gap-3">
+                <button x-show="!confirming" @click="confirming = true" class="text-[10px] font-bold text-red-500/50 hover:text-red-500 transition">
                     <i class="fa-solid fa-trash-can"></i> Effacer les logs
                 </button>
-
-                <div x-show="confirming" x-transition class="flex items-center gap-2">
-                    <span class="text-xs font-bold text-red-400 mr-2 uppercase italic">Es-tu sûr ?</span>
-                    <form method="POST">
+                <div x-show="confirming" class="flex items-center gap-2">
+                    <form method="POST" class="inline">
                         <input type="hidden" name="action" value="clear_logs">
-                        <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg shadow-red-900/20">
-                            OUI
-                        </button>
+                        <button type="submit" class="text-[10px] font-bold text-red-500">[CONFIRM_DELETE]</button>
                     </form>
-                    <button @click="confirming = false" class="bg-gray-800 text-slate-400 px-4 py-2 rounded-xl font-bold text-sm">
-                        NON
-                    </button>
+                    <button @click="confirming = false" class="text-[10px] font-bold text-slate-500">[CANCEL]</button>
                 </div>
             </div>
         </div>
 
-        <div class="bg-black/40 border border-gray-800 rounded-3xl overflow-hidden backdrop-blur-sm">
+        <div class="bg-black/20 border border-gray-900 rounded-lg overflow-hidden">
             <?php if (empty($lines)): ?>
                 <div class="p-20 text-center">
                     <i class="fa-solid fa-ghost text-4xl text-gray-800 mb-4 block"></i>
                     <p class="text-gray-600 font-bold italic uppercase tracking-widest">Le journal est vide</p>
                 </div>
             <?php else: ?>
-                <div class="divide-y divide-gray-900">
-                    <?php foreach ($lines as $line): ?>
-                        <div class="p-3 hover:bg-white/5 transition group flex gap-4 items-start">
-                            <span class="text-gray-700 font-bold text-[10px] pt-1 select-none"><?= sprintf('%03d', --$line_count_total ?? count($lines)) ?></span>
-                            <div class="flex-1 break-all whitespace-pre-wrap leading-relaxed">
-                                <?php 
-                                    // Coloration basique des tags [ERROR] / [DEBUG]
-                                    $line = htmlspecialchars($line);
-                                    $line = str_replace('[ERROR]', '<span class="text-red-500 font-bold">[ERROR]</span>', $line);
-                                    $line = str_replace('[DEBUG]', '<span class="text-blue-400 font-bold">[DEBUG]</span>', $line);
-                                    $line = str_replace('[INFO]', '<span class="text-green-400 font-bold">[INFO]</span>', $line);
-                                    echo $line;
-                                ?>
+                <div class="font-mono text-[11px] leading-tight">
+                    <?php foreach ($lines as $line): 
+                        // 1. On nettoie les espaces avant/après (trim)
+                        $cleanLine = trim($line); 
+                        if (empty($cleanLine)) continue;
+                    ?>
+                        <div class="flex hover:bg-white/5 border-b border-gray-900/50 group">
+                            <div class="w-12 shrink-0 text-right pr-3 py-0.5 text-slate-700 border-r border-gray-900 select-none group-hover:text-blue-900">
+                                <?= $currentLineNum-- ?>
                             </div>
+                            <div class="px-3 py-0.5 break-all whitespace-pre-wrap"><?php 
+                                    $htmlLine = htmlspecialchars($cleanLine);
+                                    $htmlLine = str_replace('[ERROR]', '<span class="text-red-600 font-bold">[ERROR]</span>', $htmlLine);
+                                    $htmlLine = str_replace('[DEBUG]', '<span class="text-blue-500">[DEBUG]</span>', $htmlLine);
+                                    $htmlLine = str_replace('[INFO]', '<span class="text-emerald-500">[INFO]</span>', $htmlLine);
+                                    echo $htmlLine;
+                            ?></div>
                         </div>
                     <?php endforeach; ?>
                 </div>
