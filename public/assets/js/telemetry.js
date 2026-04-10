@@ -15,6 +15,7 @@ const CV_Telemetry = {
         console.log("🛠️ Manganese Probe: Depth tracking active");
         this.trackCopy();
         //this.trackDownloads();
+        this.injectSidInLinks();
         this.trackTextSelection();
         this.trackScrollDepth();
         this.trackHeartbeat();
@@ -102,15 +103,26 @@ const CV_Telemetry = {
                 }
             });
         }, { passive: true }); // Performance : ne bloque pas le scroll fluide
-    },    
+    },
 
+    /**
+     * Injecte le SID dans tous les liens de stockage pour garantir l'isolation
+     */
+    injectSidInLinks() {
+        const links = document.querySelectorAll('a[href^="/storage/"]');
+        links.forEach(link => {
+            const url = new URL(link.href, window.location.origin);
+            url.searchParams.set('sid', this.telemetryId);
+            link.href = url.pathname + url.search;
+        });
+    },
     /**
      * Heartbeat pour maintenir la durée de session
      */
     trackHeartbeat() {
         setInterval(() => {
             this.send('heartbeat', 'keep_alive');
-        }, 60000); // Toutes les minutes
+        }, 30000); // Toutes les minutes
     }
 };
 
