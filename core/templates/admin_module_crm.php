@@ -1,35 +1,40 @@
 <?php
 /**
- * Manganese OS - Module CRM Standalone
+ * Manganese OS - CRM Standalone (Focus Entreprise)
  */
 
 $db = get_db_connection();
-$selected_app_id = $_GET['app_id'] ?? null;
+$app_id = $_GET['app_id'] ?? null;
 
-// --- 1. SAUVEGARDE (Idem précédent) ---
+// 1. RÉCUPÉRATION DIRECTE DE L'APP (On ne passe plus par une liste)
+$current_app = null;
+if ($app_id) {
+    $stmt = $db->prepare("SELECT * FROM applications WHERE id = ?");
+    $stmt->execute([$app_id]);
+    $current_app = $stmt->fetch();
+}
+
+// 2. SAUVEGARDE D'UN ÉVÉNEMENT
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_event') {
     $stmt = $db->prepare("INSERT INTO crm_events (app_id, event_date, type, comment, next_action) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([
-        $_POST['app_id'],
+        $app_id,
         $_POST['event_date'] ?: date('Y-m-d H:i:s'),
         $_POST['type'],
         $_POST['comment'],
         $_POST['next_action']
     ]);
-    header("Location: ?key=$key&module=crm&app_id=" . $_POST['app_id']);
+    Logger::info("CRM: New event for " . ($current_app['company_name'] ?? $app_id));
+    header("Location: ?key=$key&module=crm&app_id=$app_id");
     exit;
 }
 
-// --- 2. RÉCUPÉRATION DES DONNÉES ---
-$apps = $db->query("SELECT id, company_name, job_title FROM applications ORDER BY company_name ASC")->fetchAll();
+// 3. RÉCUPÉRATION DE L'HISTORIQUE
 $events = [];
-$current_app = null;
-
-if ($selected_app_id) {
+if ($app_id) {
     $stmt = $db->prepare("SELECT * FROM crm_events WHERE app_id = ? ORDER BY event_date DESC");
-    $stmt->execute([$selected_app_id]);
+    $stmt->execute([$app_id]);
     $events = $stmt->fetchAll();
-    foreach ($apps as $a) if ($a['id'] == $selected_app_id) $current_app = $a;
 }
 
 $type_icons = [
@@ -47,110 +52,100 @@ $type_icons = [
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>CRM | <?= $current_app ? htmlspecialchars($current_app['company_name']) : 'Manganese OS' ?></title>
+    <title>CRM | <?= htmlspecialchars($current_app['company_name'] ?? 'Manganese') ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        body { background: #050505; color: #cbd5e1; font-family: ui-sans-serif, system-ui; }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
     </style>
 </head>
-<body class="bg-[#050505] text-slate-300 font-sans p-6 custom-scroll">
+<body class="p-6 custom-scroll">
 
-    <div class="max-w-6xl mx-auto" x-data="{ showForm: false }">
+    <div class="max-w-4xl mx-auto" x-data="{ showForm: <?= empty($events) ? 'true' : 'false' ?> }">
         
         <?php if (!$current_app): ?>
-            <div class="text-center py-20 bg-slate-900 rounded-3xl border border-slate-800">
-                <i class="fa-solid fa-circle-exclamation text-4xl text-slate-700 mb-4"></i>
-                <p class="text-slate-500 font-bold uppercase tracking-widest">Candidature introuvable</p>
+            <div class="p-12 text-center border border-red-500/20 bg-red-500/5 rounded-3xl">
+                <i class="fa-solid fa-triangle-exclamation text-red-500 text-2xl mb-4"></i>
+                <p class="font-bold text-white">ID de candidature invalide</p>
+                <p class="text-xs text-slate-500 mt-2">Veuillez retourner au dashboard et cliquer sur le bouton CRM d'une candidature valide.</p>
             </div>
         <?php else: ?>
 
-            <div class="flex justify-between items-end mb-8">
+            <header class="flex justify-between items-start mb-10">
                 <div>
                     <div class="flex items-center gap-3 mb-2">
-                        <span class="bg-blue-600/20 text-blue-500 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">CRM Pipeline</span>
-                        <span class="text-slate-600 text-[10px] font-mono">ID: <?= $selected_app_id ?></span>
+                        <span class="bg-blue-600/20 text-blue-500 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-blue-500/20">CRM Pipeline</span>
+                        <span class="text-slate-700 text-[10px] font-mono">APP_ID: <?= $app_id ?></span>
                     </div>
-                    <h1 class="text-4xl font-black text-white tracking-tighter italic">
-                        <?= htmlspecialchars($current_app['company_name']) ?>
-                    </h1>
-                    <p class="text-slate-500 font-bold text-lg"><?= htmlspecialchars($current_app['job_title']) ?></p>
+                    <h1 class="text-4xl font-black text-white tracking-tighter italic"><?= htmlspecialchars($current_app['company_name']) ?></h1>
+                    <p class="text-slate-500 font-bold"><?= htmlspecialchars($current_app['job_title']) ?></p>
                 </div>
-                
-                <div class="flex gap-3">
-                    <button @click="showForm = !showForm" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black transition-all flex items-center gap-3 shadow-xl shadow-blue-900/20">
-                        <i class="fa-solid fa-plus"></i> NOUVEL ÉVÉNEMENT
-                    </button>
-                </div>
-            </div>
+                <button @click="showForm = !showForm" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-black transition flex items-center gap-2 shadow-lg shadow-blue-900/40">
+                    <i class="fa-solid fa-plus"></i> <span x-text="showForm ? 'ANNULER' : 'LOG INTERACTION'"></span>
+                </button>
+            </header>
 
-            <div x-show="showForm" x-transition.scale.origin.top class="mb-8 bg-slate-900 p-8 rounded-3xl border border-blue-500/30 shadow-2xl">
-                <form method="POST" class="grid grid-cols-2 gap-6">
+            <div x-show="showForm" x-transition class="mb-10 bg-slate-900/80 p-6 rounded-3xl border border-blue-500/20 shadow-2xl">
+                <form method="POST" class="grid grid-cols-2 gap-5">
                     <input type="hidden" name="action" value="add_event">
-                    <input type="hidden" name="app_id" value="<?= $selected_app_id ?>">
-                    
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Type d'interaction</label>
-                        <select name="type" class="w-full bg-black border border-slate-800 rounded-xl p-4 text-white focus:border-blue-500 outline-none transition">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-500 uppercase px-2">Type</label>
+                        <select name="type" class="w-full bg-black border border-slate-800 rounded-xl p-3 text-white focus:border-blue-500 outline-none">
                             <?php foreach ($type_icons as $type => $icon): ?>
                                 <option value="<?= $type ?>"><?= $type ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Date de l'événement</label>
-                        <input type="datetime-local" name="event_date" value="<?= date('Y-m-d\TH:i') ?>" class="w-full bg-black border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-blue-500 transition">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-500 uppercase px-2">Date</label>
+                        <input type="datetime-local" name="event_date" value="<?= date('Y-m-d\TH:i') ?>" class="w-full bg-black border border-slate-800 rounded-xl p-3 text-white outline-none">
                     </div>
-
-                    <div class="col-span-2 space-y-2">
-                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Compte-rendu</label>
-                        <textarea name="comment" rows="4" placeholder="Points clés de la discussion, feedback reçu..." class="w-full bg-black border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-blue-500 transition"></textarea>
+                    <div class="col-span-2 space-y-1">
+                        <label class="text-[10px] font-black text-slate-500 uppercase px-2">Commentaires</label>
+                        <textarea name="comment" rows="3" class="w-full bg-black border border-slate-800 rounded-xl p-3 text-white outline-none" placeholder="Qu'est-ce qui s'est dit ?"></textarea>
                     </div>
-
-                    <div class="col-span-2 space-y-2">
-                        <label class="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-2">Next Step</label>
-                        <input type="text" name="next_action" placeholder="Ce qu'il reste à faire..." class="w-full bg-black border border-blue-500/20 rounded-xl p-4 text-white outline-none focus:border-blue-500 transition">
+                    <div class="col-span-2 space-y-1">
+                        <label class="text-[10px] font-black text-blue-500 uppercase px-2">Prochaine étape</label>
+                        <input type="text" name="next_action" class="w-full bg-black border border-blue-500/20 rounded-xl p-3 text-white outline-none" placeholder="Relancer dans 3 jours...">
                     </div>
-
-                    <div class="col-span-2 flex justify-end gap-4 mt-4">
-                        <button type="button" @click="showForm = false" class="text-slate-500 font-bold px-4">Annuler</button>
-                        <button type="submit" class="bg-white text-black px-12 py-4 rounded-2xl font-black hover:bg-blue-400 transition">SAUVEGARDER</button>
+                    <div class="col-span-2 flex justify-end gap-3">
+                        <button type="submit" class="bg-white text-black px-8 py-3 rounded-xl font-black hover:bg-blue-400 transition">ENREGISTRER</button>
                     </div>
                 </form>
             </div>
 
-            <div class="space-y-6">
+            <div class="space-y-4">
                 <?php if (empty($events)): ?>
-                    <div class="p-12 text-center border-2 border-dashed border-slate-800 rounded-3xl">
-                        <p class="text-slate-600 font-bold italic">Aucun événement enregistré pour le moment.</p>
+                    <div class="p-16 text-center border-2 border-dashed border-slate-900 rounded-3xl">
+                        <i class="fa-solid fa-box-open text-slate-800 text-3xl mb-4"></i>
+                        <p class="text-slate-600 font-bold italic tracking-tight">Aucune interaction enregistrée pour <?= htmlspecialchars($current_app['company_name']) ?>.</p>
                     </div>
                 <?php else: ?>
                     <?php foreach ($events as $event): ?>
-                        <div class="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl flex gap-6 group hover:border-slate-700 transition">
-                            <div class="shrink-0">
-                                <div class="w-14 h-14 bg-black rounded-2xl flex items-center justify-center border border-slate-800">
-                                    <i class="fa-solid <?= $type_icons[$event['type']] ?? 'fa-calendar-day' ?> text-xl"></i>
-                                </div>
-                            </div>
-                            <div class="flex-1">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h3 class="text-lg font-black text-white"><?= $event['type'] ?></h3>
-                                    <span class="text-xs font-mono text-slate-600"><?= date('d.m.Y H:i', strtotime($event['event_date'])) ?></span>
-                                </div>
-                                <div class="text-slate-400 leading-relaxed text-sm mb-4">
-                                    <?= nl2br(htmlspecialchars($event['comment'])) ?>
-                                </div>
-                                <?php if ($event['next_action']): ?>
-                                    <div class="inline-flex items-center gap-3 bg-blue-500/5 border border-blue-500/10 px-4 py-2 rounded-full">
-                                        <i class="fa-solid fa-bullseye text-blue-500 text-[10px]"></i>
-                                        <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Prochaine action : <?= htmlspecialchars($event['next_action']) ?></span>
+                        <div class="bg-slate-900/40 border border-slate-800/60 p-5 rounded-3xl hover:border-slate-700 transition group">
+                            <div class="flex justify-between items-center mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-black rounded-xl flex items-center justify-center border border-slate-800">
+                                        <i class="fa-solid <?= $type_icons[$event['type']] ?? 'fa-calendar' ?>"></i>
                                     </div>
-                                <?php endif; ?>
+                                    <div>
+                                        <h3 class="font-black text-white text-sm"><?= $event['type'] ?></h3>
+                                        <p class="text-[10px] text-slate-600 font-mono"><?= date('d.m.Y @ H:i', strtotime($event['event_date'])) ?></p>
+                                    </div>
+                                </div>
                             </div>
+                            <div class="text-sm text-slate-400 mb-4 px-2">
+                                <?= nl2br(htmlspecialchars($event['comment'])) ?>
+                            </div>
+                            <?php if ($event['next_action']): ?>
+                                <div class="bg-blue-500/5 border border-blue-500/10 p-3 rounded-2xl flex items-center gap-3">
+                                    <i class="fa-solid fa-arrow-right text-blue-600 text-[10px]"></i>
+                                    <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest">NEXT : <?= htmlspecialchars($event['next_action']) ?></span>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
