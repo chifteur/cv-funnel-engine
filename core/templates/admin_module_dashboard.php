@@ -314,8 +314,7 @@ $cv_exps = $db->query("SELECT * FROM cv_experiences ORDER BY display_order ASC, 
 $cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll();
 $cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll();
 $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
-$attached_docs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetchAll();
-$allDocs = $db->query("SELECT * FROM documents ORDER BY created_at DESC")->fetchAll();
+$allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
 ?>
 
 <!DOCTYPE html>
