@@ -8,6 +8,8 @@ $db = get_db_connection();
 
 // On charge tout depuis la DB
 $profile = $db->query("SELECT * FROM profile_settings WHERE id = 1")->fetch();
+
+$page_title = "Dossier Professionnel";
 ?>
 
 <!DOCTYPE html>
