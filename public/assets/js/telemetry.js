@@ -12,14 +12,15 @@ const CV_Telemetry = {
 
     init() {
         if (!this.telemetryId) return; // Sécurité
-        console.log("🛠️ Manganese Probe: Depth tracking active");
-        console.log(`🔐 Telemetry ID: ${this.telemetryId}`);
+        //console.log("🛠️ Manganese Probe: Depth tracking active");
+        //console.log(`🔐 Telemetry ID: ${this.telemetryId}`);
         this.trackCopy();
         //this.trackDownloads();
         this.injectSidInLinks();
         this.trackTextSelection();
         this.trackScrollDepth();
         this.trackHeartbeat();
+        this.trackPrint();
     },
 
     /**
@@ -74,7 +75,7 @@ const CV_Telemetry = {
                     // On inverse : type = reading_focus, el_id = l'id de la section
                     this.send('reading_focus', sectionId, currentText);
                     this.lastLoggedSelection = currentText;
-                    console.log(`📡 Focus enregistré dans la section [${sectionId}]`);
+                    //console.log(`📡 Focus enregistré dans la section [${sectionId}]`);
                 }, 2000); // Tes 2 secondes validées
             }
         });
@@ -123,8 +124,18 @@ const CV_Telemetry = {
     trackHeartbeat() {
         setInterval(() => {
             this.send('heartbeat', 'keep_alive');
-        }, 30000); // Toutes les minutes
-    }
+        }, 20000); // Toutes les minutes
+    },
+
+    /**
+     * Capture du déclenchement de l'impression (Export PDF)
+     */
+    trackPrint() {
+        window.addEventListener('afterprint', () => {
+            this.send('print_cv', 'document', 'L\'utilisateur a ouvert ou fermé la boîte d\'impression');
+            //console.log("📡 Événement d'impression envoyé");
+        });
+    },
 };
 
 document.addEventListener('DOMContentLoaded', () => CV_Telemetry.init());
