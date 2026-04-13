@@ -106,7 +106,7 @@ foreach ($cv_skills as $skill) {
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto px-6 py-12">
+    <main class="max-w-7xl mx-auto px-6 py-12">
 
         <!-- HERO SECTION -->
         <section id="hero" class="mb-24 hero-gradient p-10 rounded-3xl border shadow-sm">
