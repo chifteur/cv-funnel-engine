@@ -18,21 +18,31 @@ function dispatch(string $request_uri): void {
 
     // --- LOGIQUE DE SESSION ROBUSTE ---
     if (!isset($_SESSION['current_telemetry_id'])) {
-        // 1. On cherche si ce visiteur a déjà une session ouverte récemment dans la BDD
-        $stmt = $db->prepare("SELECT bin_to_uuid(id) as s_id FROM telemetry_sessions 
-                            WHERE visitor_uuid = ? 
-                            AND started_at > DATE_SUB(NOW(), INTERVAL 1 HOUR) 
-                            ORDER BY started_at DESC LIMIT 1");
-        $stmt->execute([$visitor_uuid]);
-        $last_s = $stmt->fetch();
 
-        if ($last_s) {
-            Logger::debug("Restoring existing telemetry session from DB", ['visitor_uuid' => $visitor_uuid, 'session_id' => $last_s['s_id']]);
-            $_SESSION['current_telemetry_id'] = $last_s['s_id'];
+        // On définit si on est sur un chemin qui nécessite un tracking
+        $should_track = (str_starts_with($path, 'go/') || str_starts_with($path, 'storage/'));
+        if ($should_track) {
+
+            // 1. On cherche si ce visiteur a déjà une session ouverte récemment dans la BDD
+            $stmt = $db->prepare("SELECT bin_to_uuid(id) as s_id FROM telemetry_sessions 
+                                WHERE visitor_uuid = ? 
+                                AND started_at > DATE_SUB(NOW(), INTERVAL 1 HOUR) 
+                                ORDER BY started_at DESC LIMIT 1");
+            $stmt->execute([$visitor_uuid]);
+            $last_s = $stmt->fetch();
+
+            if ($last_s) {
+                Logger::debug("Restoring existing telemetry session from DB", ['visitor_uuid' => $visitor_uuid, 'session_id' => $last_s['s_id']]);
+                $_SESSION['current_telemetry_id'] = $last_s['s_id'];
+            } else {
+                Logger::debug("No recent session found in DB, will create new session on demand", ['visitor_uuid' => $visitor_uuid]);
+                $_SESSION['current_telemetry_id'] = generate_uuid();
+            }
         } else {
-            Logger::debug("No recent session found in DB, will create new session on demand", ['visitor_uuid' => $visitor_uuid]);
-            $_SESSION['current_telemetry_id'] = generate_uuid();
+            // Si on n'est pas sur un chemin critique, on s'assure que l'ID de session est vide
+            $_SESSION['current_telemetry_id'] = null;
         }
+
     }
     //$session_id = $_SESSION['current_telemetry_id'];
 
