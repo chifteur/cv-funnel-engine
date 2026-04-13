@@ -14,7 +14,19 @@ if ($app_id) {
     $current_app = $stmt->fetch();
 }
 
-// 2. SAUVEGARDE D'UN ÉVÉNEMENT
+// 2. CHANGEMENT DE STATUT
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_status') {
+    $new_status = $_POST['status'] ?? null;
+    if ($new_status && in_array($new_status, ['sent', 'interview', 'rejected', 'accepted'])) {
+        $stmt = $db->prepare("UPDATE applications SET status = ? WHERE id = ?");
+        $stmt->execute([$new_status, $app_id]);
+        Logger::info("CRM: Status updated to '$new_status' for " . ($current_app['company_name'] ?? $app_id));
+        header("Location: ?key=$key&module=crm&app_id=$app_id");
+        exit;
+    }
+}
+
+// 3. SAUVEGARDE D'UN ÉVÉNEMENT
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_event') {
     // On convertit le format HTML (T) vers le format SQL (Espace)
     $event_date = str_replace('T', ' ', $_POST['event_date']);
@@ -129,20 +141,34 @@ $type_icons = [
                         <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-3 px-4">
                             <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Temps total</p>
                             <p class="text-xl font-black text-slate-900"><?= ceil(($telemetry_stats['total_time'] ?? 0) / 60) ?> <span class="text-xs text-slate-600">min</span></p>
-                            </div>
-                            <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-3 px-4">
-                                <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Dernière vue</p>
-                                <p class="text-sm font-bold text-blue-400 mt-1">
-                                    <?= $telemetry_stats['last_seen'] ? date('d.m.Y @ H:i', strtotime($telemetry_stats['last_seen'])) : 'Jamais' ?>
-                                </p>
-                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-3 px-4">
+                            <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Dernière vue</p>
+                            <p class="text-sm font-bold text-blue-400 mt-1">
+                                <?= $telemetry_stats['last_seen'] ? date('d.m.Y @ H:i', strtotime($telemetry_stats['last_seen'])) : 'Jamais' ?>
+                            </p>
                         </div>
                     </div>
-                    
+                </div>
+                
                 <button @click="showForm = !showForm" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black transition-all flex items-center gap-3 shadow-xl shadow-blue-900/20">
                     <i class="fa-solid fa-plus"></i> <span x-text="showForm ? 'ANNULER' : 'LOG INTERACTION'"></span>
                 </button>
             </header>
+
+            <!-- STATUS SELECTOR -->
+            <div class="mb-8 bg-white border border-slate-200 shadow-sm rounded-2xl p-4">
+                <form method="POST" class="flex items-center gap-4">
+                    <input type="hidden" name="action" value="update_status">
+                    <label class="text-[10px] font-black text-slate-500 uppercase">Statut de la postulation</label>
+                    <select name="status" onchange="this.form.submit()" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 font-bold outline-none hover:border-blue-500 cursor-pointer">
+                        <option value="sent" <?= ($current_app['status'] === 'sent') ? 'selected' : '' ?>>📤 Envoyé</option>
+                        <option value="interview" <?= ($current_app['status'] === 'interview') ? 'selected' : '' ?>>🎤 Entretien</option>
+                        <option value="accepted" <?= ($current_app['status'] === 'accepted') ? 'selected' : '' ?>>✅ Accepté</option>
+                        <option value="rejected" <?= ($current_app['status'] === 'rejected') ? 'selected' : '' ?>>❌ Rejeté</option>
+                    </select>
+                </form>
+            </div>
 
             <div x-show="showForm" x-transition class="mb-10 bg-white shadow-lg border-slate-200 p-6 rounded-3xl border border-blue-500/20 shadow-2xl">
                     <form method="POST" class="grid grid-cols-2 gap-5">
