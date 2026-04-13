@@ -14,7 +14,7 @@ $cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll
 $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
 
 // Docs liés
-$stmtDocs = $db->prepare("SELECT d.* FROM documents d JOIN rel_app_doc rel ON d.id = rel.doc_id WHERE rel.app_id = ?");
+$stmtDocs = $db->prepare("SELECT d.* FROM documents d JOIN rel_app_doc rel ON d.id = rel.doc_id WHERE rel.app_id = ? ORDER BY d.category");
 $stmtDocs->execute([$app['id']]);
 $attached_docs = $stmtDocs->fetchAll();
 
@@ -42,6 +42,46 @@ foreach ($cv_skills as $skill) {
         .why-me-card { transform: rotate(-1.5deg); }
         .highlight-lens { border-left: 5px solid #3b82f6; background: white; }
         .hero-gradient { background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); }
+
+        @media print {
+            /* Cache les éléments inutiles sur le PDF */
+            .print\:hidden { display: none !important; }
+
+            header, 
+            .fixed, 
+            .sticky {
+                position: static !important;
+                width: 100% !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            
+            /* Force le fond blanc et les couleurs */
+            body { 
+                    background: white !important; 
+                    print-color-adjust: exact; 
+                    -webkit-print-color-adjust: exact; 
+                    font-size: 11pt; /* Taille standard pour la lecture papier */
+                }
+            
+            /* Supprime les headers/footers ajoutés par le navigateur (date, url) */
+            @page { margin: 1.5cm; size: auto; }
+            body { 
+                margin: 1cm; 
+                padding-top: 0 !important;
+            }
+            header {
+                margin-bottom: 2rem;
+            }
+
+            .why-me-card, .skill-category, .experience-card, .document-card, .education-card, .match-card {
+                break-inside: avoid;
+            }
+            
+            h2 {
+                break-after: avoid; /* Évite qu'un titre soit seul en bas de page */
+            }            
+        }        
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased font-sans leading-normal" data-telemetry-id="<?= $telemetry_id ?>">
@@ -52,12 +92,17 @@ foreach ($cv_skills as $skill) {
                 <h1 class="text-xl font-black text-slate-800 tracking-tighter"><?= htmlspecialchars(strtoupper($profile['full_name'] ?? '')) ?></h1>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-widest"><?= htmlspecialchars($profile['job_title'] ?? '') ?> • Candidature <?= htmlspecialchars($app['company_name']) ?></p>
             </div>
-            <div class="hidden md:flex items-center gap-6 text-sm font-medium">
+            <div class="hidden md:flex items-center gap-6 text-sm font-medium print:hidden">
                 <a href="#experience" class="hover:text-blue-600 transition">Expérience</a>
                 <a href="#skills" class="hover:text-blue-600 transition">Compétences</a>
                 <a href="#education" class="hover:text-blue-600 transition">Éducation</a>
-                <a href="mailto:<?= $profile['email'] ?? '' ?>" class="bg-slate-900 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition">Contact direct</a>
+                <a href="mailto:<?= $profile['email'] ?? '' ?>" class="bg-slate-900 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition whitespace-nowrap">Contact direct</a>                
             </div>
+            <div class="fixed top-4 right-4 print:hidden">
+                <button onclick="window.print()" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-black shadow-xl hover:bg-blue-600 transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-pdf"></i> EXPORTER EN PDF
+                </button>
+            </div>            
         </div>
     </header>
 
@@ -140,7 +185,7 @@ foreach ($cv_skills as $skill) {
             </h3>
             <div class="grid md:grid-cols-<?= count($skills_by_category) >= 2 ? '2' : '1' ?> gap-8">
                 <?php foreach ($skills_by_category as $category => $skills): ?>
-                <div class="bg-white p-8 rounded-2xl shadow-sm border">
+                <div class="skill-category bg-white p-8 rounded-2xl shadow-sm border">
                     <h4 class="font-bold text-blue-600 uppercase text-xs tracking-widest mb-6">
                         <?= $category === 'management' ? 'Management & Gouvernance' : ($category === 'ops' ? 'Excellence Opérationnelle' : 'Techniques & Technologie') ?>
                     </h4>
@@ -166,7 +211,7 @@ foreach ($cv_skills as $skill) {
             </h3>
             <div class="space-y-8">
                 <?php foreach($cv_exps as $exp): ?>
-                <div class="p-8 rounded-xl shadow-sm border <?= $exp['category'] === $lens ? 'highlight-lens' : 'bg-white' ?> hover:shadow-md transition">
+                <div class="experience-card p-8 rounded-xl shadow-sm border <?= $exp['category'] === $lens ? 'highlight-lens' : 'bg-white' ?> hover:shadow-md transition">
                     <div class="flex flex-col md:flex-row justify-between mb-4">
                         <div>
                             <h4 class="text-xl font-bold"><?= htmlspecialchars($exp['role']) ?></h4>
@@ -190,12 +235,12 @@ foreach ($cv_skills as $skill) {
 
         <!-- DOCUMENTS SECTION -->
         <?php if (!empty($attached_docs)): ?>
-        <section id="documents" class="mb-24">
-            <h3 class="text-2xl font-black mb-10 flex items-center gap-3">
+        <section id="documents" class="document-card mb-24 print:mb-8">
+            <h3 class="text-2xl font-black mb-10 flex items-center gap-3 print:mb-4 print:text-xl">
                 <i class="fa-solid fa-folder-open text-blue-600"></i> Documents & Certifications
             </h3>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print:gap-3">
                 <?php foreach ($attached_docs as $doc): 
                     // Logique d'icône et de couleur par catégorie
                     $isDiploma = ($doc['category'] === 'diploma');
@@ -205,23 +250,23 @@ foreach ($cv_skills as $skill) {
                 ?>
                 <a href="/storage/docs/<?= htmlspecialchars($doc['filename']) ?>" 
                 target="_blank" 
-                class="group flex gap-5 p-6 bg-white border border-slate-100 rounded-3xl items-center shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 transform hover:-translate-y-1">
+                class="group flex gap-5 p-6 bg-white border border-slate-100 rounded-3xl items-center shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 transform hover:-translate-y-1 print:p-3 print:rounded-2xl print:gap-3">
                     
-                    <div class="w-16 h-16 <?= $accentClass ?> rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-blue-600 transition-colors duration-300">
-                        <i class="fa-solid <?= $icon ?> text-2xl group-hover:text-white"></i>
+                    <div class="w-16 h-16 <?= $accentClass ?> rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-blue-600 transition-colors duration-300 print:w-10 print:h-10 print:rounded-xl">
+                        <i class="fa-solid <?= $icon ?> text-2xl group-hover:text-white print:text-base"></i>
                     </div>
                     
                     <div class="flex-1 min-w-0">
-                        <span class="text-[10px] font-black uppercase tracking-wider <?= $isDiploma ? 'text-blue-500' : 'text-slate-400' ?>">
+                        <span class="text-[10px] font-black uppercase tracking-wider <?= $isDiploma ? 'text-blue-500' : 'text-slate-400' ?> print:text-[8px]">
                             <?= $catLabel ?>
                         </span>
-                        <h5 class="font-bold text-slate-800 leading-tight truncate group-hover:text-blue-600 transition-colors">
+                        <h5 class="font-bold text-slate-800 leading-tight truncate group-hover:text-blue-600 transition-colors print:text-xs">
                             <?= htmlspecialchars($doc['label']) ?>
                         </h5>
-                        <p class="text-xs text-slate-400 mt-1">Format PDF • Cliquez pour ouvrir</p>
+                        <p class="text-xs text-slate-400 mt-1 print:hidden">Format PDF • Cliquez pour ouvrir</p>
                     </div>
 
-                    <div class="text-slate-200 group-hover:text-blue-500 transition-colors">
+                    <div class="text-slate-200 group-hover:text-blue-500 transition-colors print:hidden">
                         <i class="fa-solid fa-arrow-up-right-from-square text-xl"></i>
                     </div>
                 </a>
@@ -232,14 +277,14 @@ foreach ($cv_skills as $skill) {
 
         <!-- EDUCATION SECTION -->
         <?php if (!empty($cv_edus) || !empty($cv_langs)): ?>
-        <section id="education" class="mb-24">
-            <h3 class="text-2xl font-black mb-10 flex items-center gap-3">
+        <section id="education" class="education-card mb-24 print:mb-8">
+            <h3 class="text-2xl font-black mb-10 flex items-center gap-3 print:mb-4 print:text-xl">
                 <i class="fa-solid fa-graduation-cap text-gray-300"></i> Formation & Certifications
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print:gap-3">
                 <?php foreach ($cv_edus as $edu): ?>
-                <div class="flex gap-4 p-6 bg-white border rounded-xl items-center shadow-sm">
-                    <i class="fa-solid fa-<?= htmlspecialchars($edu['icon'] ?? 'award') ?> text-blue-600 text-3xl"></i>
+                <div class="flex gap-4 p-6 bg-white border rounded-xl items-center shadow-sm print:gap-2 print:p-3 print:rounded-xsl">
+                    <i class="fa-solid fa-<?= htmlspecialchars($edu['icon'] ?? 'award') ?> text-blue-600 text-3xl print:text-base print:text-black"></i>
                     <div>
                         <h5 class="font-bold text-gray-800"><?= htmlspecialchars($edu['degree']) ?></h5>
                         <p class="text-sm text-gray-500"><?= htmlspecialchars($edu['institution']) ?><?= !empty($edu['year']) ? ', ' . htmlspecialchars($edu['year']) : '' ?></p>
@@ -247,7 +292,7 @@ foreach ($cv_skills as $skill) {
                 </div>
                 <?php endforeach; ?>
                 <?php if (!empty($cv_langs)): ?>
-                <div class="flex gap-4 p-6 bg-white border rounded-xl items-center shadow-sm">
+                <div class="flex gap-4 p-6 bg-white border rounded-xl items-center shadow-sm print:gap-2 print:p-3 print:rounded-xsl print:text-black">
                     <i class="fa-solid fa-language text-blue-600 text-3xl"></i>
                     <div>
                         <h5 class="font-bold text-gray-800">Langues</h5>
@@ -262,7 +307,7 @@ foreach ($cv_skills as $skill) {
         <?php endif; ?>
 
         <!-- MATCH SECTION -->
-        <section class="bg-gray-900 rounded-3xl p-10 md:p-16 text-white shadow-2xl">
+        <section id="match" class="match-card bg-gray-900 rounded-3xl p-10 md:p-16 text-white shadow-2xl">
             <div class="grid md:grid-cols-2 gap-12 items-center">
                 <div>
                     <h2 class="text-3xl font-black mb-6 italic">Pourquoi <?= htmlspecialchars($profile['full_name'] ?? '') ?> + <?= htmlspecialchars($app['company_name']) ?> ?</h2>
@@ -300,7 +345,7 @@ foreach ($cv_skills as $skill) {
 
     </main>
 
-    <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex gap-4 z-50 w-full max-w-fit px-4">
+    <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex gap-4 z-50 w-full max-w-fit px-4 print:hidden">
         <a href="mailto:<?= $profile['email'] ?? '' ?>?subject=Contact suite à votre CV personnalisé (<?= urlencode($profile['full_name'] ?? '') ?>)" 
         class="bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-2xl hover:bg-blue-700 hover:scale-105 transition-all duration-300 flex items-center gap-3 border-4 border-white">
             <i class="fa-solid fa-calendar-check"></i> 
@@ -308,10 +353,10 @@ foreach ($cv_skills as $skill) {
         </a>
     </div>
 
-    <footer class="text-center pt-12 pb-32 text-gray-400 text-xs border-t mt-12 bg-slate-50/50">
+    <footer class="text-center pt-12 pb-32 text-gray-400 text-xs border-t mt-12 bg-slate-50/50 print:pt-4 print:pb-4 print:mt-6 print:bg-transparent">
         <div class="max-w-4xl mx-auto px-6">
             
-            <div class="flex flex-wrap justify-center gap-x-8 gap-y-4 mb-8 text-gray-500 font-medium">
+            <div class="flex flex-wrap justify-center gap-x-8 gap-y-4 mb-8 text-gray-500 font-medium print:gap-x-4 print:mb-2 print:text-[10px]">
                 <?php if (!empty($profile['phone'])): ?>
                     <a href="tel:<?= $profile['phone'] ?>" class="hover:text-blue-600 flex items-center gap-2 transition">
                         <i class="fa-solid fa-phone text-[10px]"></i> <?= htmlspecialchars($profile['phone']) ?>
@@ -329,11 +374,11 @@ foreach ($cv_skills as $skill) {
                 </a>
             </div>
 
-            <p class="mb-2">
+            <p class="mb-2 print:mb-0 print:text-[9px]">
                 &copy; 2026 Manganese — <strong><?= htmlspecialchars($profile['full_name'] ?? '') ?></strong>
             </p>
-            <p class="opacity-75">
-                Dossier créé spécifiquement pour <span class="text-blue-600 font-semibold"><?= htmlspecialchars($app['company_name']) ?></span>.
+            <p class="opacity-75 print:text-[9px]">
+                Dossier créé spécifiquement pour <span class="text-blue-600 font-semibold print:text-black"><?= htmlspecialchars($app['company_name']) ?></span>.
             </p>
         </div>
     </footer>
