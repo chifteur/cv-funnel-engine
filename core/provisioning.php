@@ -23,8 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Déduction intelligente de SITE_URL
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-    // On enlève le chemin du script actuel pour avoir l'URL racine proprement
-    $site_url = rtrim($protocol . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']), '/\\');
+    $path = dirname($_SERVER['PHP_SELF']);
+    
+    // On nettoie "/public" à la fin du chemin si le serveur l'a inclus
+    $path = preg_replace('#/public$#', '', $path);
+    
+    // On assemble le tout proprement
+    $site_url = rtrim($protocol . $_SERVER['HTTP_HOST'] . $path, '/\\');
 
     try {
         // 1. Test de la connexion à la base de données
