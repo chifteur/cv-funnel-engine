@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: grahan.pdx1-mysql-a7-5a.dreamhost.com
--- Generation Time: Apr 07, 2026 at 08:23 AM
+-- Generation Time: Apr 15, 2026 at 03:47 AM
 -- Server version: 8.0.41-0ubuntu0.24.04.1
 -- PHP Version: 8.1.2-1ubuntu2.23
 
@@ -36,16 +36,12 @@ CREATE TABLE `applications` (
   `custom_pitch` text COLLATE utf8mb4_unicode_ci,
   `default_lens` enum('management','ops','tech') COLLATE utf8mb4_unicode_ci DEFAULT 'ops',
   `created_at` datetime NOT NULL,
-  `status` enum('sent','interview','rejected','accepted') COLLATE utf8mb4_unicode_ci DEFAULT 'sent'
+  `status` enum('sent','interview','rejected','accepted') COLLATE utf8mb4_unicode_ci DEFAULT 'sent',
+  `why_me` text COLLATE utf8mb4_unicode_ci COMMENT 'Présentation personnelle',
+  `strengths` text COLLATE utf8mb4_unicode_ci COMMENT 'Forces et compétences clés',
+  `perfect_match` text COLLATE utf8mb4_unicode_ci COMMENT 'Pourquoi ce match est le bon'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `applications`
---
-
-INSERT INTO `applications` (`id`, `slug`, `company_name`, `job_title`, `job_url`, `custom_pitch`, `default_lens`, `created_at`, `status`) VALUES
-(1, 'jenov-test', 'J-eNOV SA', 'Directeur Ops', 'https://www.jobup.ch/fr/emplois/detail/c9e00447-7dbe-410b-87f7-f12729462ba1/', 'Bonjour David, voici un test...', 'ops', '2026-04-04 10:08:35', 'sent'),
-(2, 'vnv-test', 'VNV SA', 'Software Manager', 'https://www.linkedin.com/jobs/view/4325498872/', 'Bonjour Yannick, ceci est un test 2', 'management', '2026-04-04 10:09:25', 'sent');
 
 -- --------------------------------------------------------
 
@@ -62,21 +58,22 @@ CREATE TABLE `crm_events` (
   `next_action` varchar(255) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
+
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `crm_events_attached`
 --
 
-CREATE TABLE crm_events_attached (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    event_id INT NOT NULL,
-    link VARCHAR(512) NOT NULL,
-    attached_type ENUM('url', 'file') NOT NULL,
-    label VARCHAR(255) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (event_id) REFERENCES crm_events(id) ON DELETE CASCADE
-);
+CREATE TABLE `crm_events_attached` (
+  `id` int NOT NULL,
+  `event_id` int NOT NULL,
+  `link` varchar(512) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `attached_type` enum('url','file') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `label` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- --------------------------------------------------------
 
 --
@@ -91,15 +88,6 @@ CREATE TABLE `cv_education` (
   `icon` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT 'fa-graduation-cap'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
---
--- Dumping data for table `cv_education`
---
-
-INSERT INTO `cv_education` (`id`, `degree`, `institution`, `year`, `icon`) VALUES
-(1, 'Brevet Fédéral - Spécialiste conduite d’équipe (ASFC)', 'ASFC', '2024-2025', 'fa-award'),
-(2, 'Ingénieur HES en informatique', 'HE-ARC', '2001', 'fa-graduation-cap'),
-(3, 'SAFe 6 Agilist Certification', 'Scaled Agile', '2023', 'fa-certificate'),
-(4, 'ScrumMaster Certification', 'Scrum Alliance', '2022', 'fa-certificate');
 
 -- --------------------------------------------------------
 
@@ -118,16 +106,6 @@ CREATE TABLE `cv_experiences` (
   `display_order` int NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
---
--- Dumping data for table `cv_experiences`
---
-
-INSERT INTO `cv_experiences` (`id`, `company`, `role`, `location`, `period`, `content`, `category`, `display_order`) VALUES
-(1, 'Membre de la Direction (Co-management)', 'COO | Software Manager', 'Courtelary', '2019 — Présent', '• Management d’organisations internationales (Suisse, France, Maroc, Inde).\n• Alignement stratégique entre Sales, Services, R&D et C-level.\n• Surveillance budgétaire pour la R&D et les opérations Cloud.\n• Optimisation des processus et change management pour la scalabilité.', 'management', 0),
-(2, 'SwissTiming (Swatch Group)', 'Software Architect & Deputy Project Manager', 'Corgémont', '2012 — 2018', '• Architecture logicielle du système de scoring vidéo multisport pour les JO de Rio 2016.\n• Redesign complet d’un framework de développement SDK.\n• Gestion de projet et coordination technique.', 'ops', 1),
-(3, 'SolvAxis (ProConcept)', 'Lead Software Architect', 'Sonceboz', '2009 — 2011', '• Change Management : Modernisation de l’ERP vers une version Web (AJAX/JS).\n• Industrialisation : Mise en place des processus Agile/SCRUM et de Git.\n• Gestion des impacts technologiques et humains.', 'tech', 3),
-(4, 'MN Manganese Sàrl', 'Independent Infrastructure Consultant', 'Courtelary', '2008 — 2018', '• Conseil stratégique : Accompagnement des PME dans la structuration et la sécurisation de leurs systèmes d’information.', 'ops', 2),
-(5, 'ProConcept SA', 'Software Engineer', 'Sonceboz', '2001 — 2009', '• Développement et maintenance du framework ERP ProConcept (Delphi, Java, C#).\n• Migration de l’ERP vers MS.Net 2.0 pour Audemars Piguet (marché Japon).', 'tech', 4);
 
 -- --------------------------------------------------------
 
@@ -141,13 +119,6 @@ CREATE TABLE `cv_languages` (
   `level` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
---
--- Dumping data for table `cv_languages`
---
-
-INSERT INTO `cv_languages` (`id`, `label`, `level`) VALUES
-(1, 'Français', 'Langue maternelle'),
-(2, 'Anglais', 'Niveau B1/B2');
 
 -- --------------------------------------------------------
 
@@ -161,19 +132,6 @@ CREATE TABLE `cv_skills` (
   `label` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `level_text` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
-
---
--- Dumping data for table `cv_skills`
---
-
-INSERT INTO `cv_skills` (`id`, `category`, `label`, `level_text`) VALUES
-(1, 'management', 'Gouvernance & Stratégie R&D', 'Expert'),
-(2, 'management', 'Performance & KPIs (OKRs)', 'Expert'),
-(3, 'management', 'International Management', 'Maitrisé'),
-(4, 'ops', 'Agile (SAFe 6 Agilist, ScrumMaster)', 'Expert'),
-(5, 'ops', 'Optimisation SDLC / Lean', 'Confirmé'),
-(6, 'tech', 'Architecture logicielle Cloud', 'Confirmé'),
-(7, 'tech', 'Analyse Business / AWS', 'Confirmé');
 
 -- --------------------------------------------------------
 
@@ -206,13 +164,6 @@ CREATE TABLE `profile_settings` (
   `photo_path` varchar(255) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
---
--- Dumping data for table `profile_settings`
---
-
-INSERT INTO `profile_settings` (`id`, `full_name`, `job_title`, `bio`, `email`, `phone`, `linkedin_url`, `photo_path`) VALUES
-(1, 'Nathanaël Schmied', 'COO | Software Manager | Transformation Leader', 'Manager opérationnel avec plus de 20 ans d’expérience dans l’industrie du logiciel. Expert dans la gestion d’organisations internationales complexes, je transforme les visions stratégiques en actions concrètes. Ma force réside dans l’alignement des départements, l’optimisation des processus et la conduite du changement pour garantir une rentabilité durable.', 'nschmied@gmail.com', NULL, NULL, '/public/assets/images/12089_Nathanael_Schmied.jpg');
-
 -- --------------------------------------------------------
 
 --
@@ -227,31 +178,46 @@ CREATE TABLE `rel_app_doc` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `settings`
+--
+
+CREATE TABLE `settings` (
+  `setting_key` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `setting_value` text COLLATE utf8mb4_unicode_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `telemetry_events`
 --
 
--- Identifie un visiteur unique (via cookie) et sa session actuelle
-CREATE TABLE `telemetry_sessions` (
-  `id` BINARY(16) PRIMARY KEY,
-  `app_id` INT NOT NULL,
-  `visitor_uuid` VARCHAR(64) NOT NULL, -- Stocké dans le cookie longue durée
-  `ip_address` VARCHAR(45),
-  `user_agent` TEXT,
-  `browser_lang` VARCHAR(10),
-  `started_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `last_activity` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `duration_seconds` INT DEFAULT 0
-);
-
--- Enregistre chaque action précise
 CREATE TABLE `telemetry_events` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `session_id` BINARY(16),
-  `event_type` ENUM('view_section', 'download', 'copy_text', 'scroll_depth', 'heartbeat') NOT NULL,
-  `element_id` VARCHAR(100), -- ex: 'diplome_hes', 'description_job_vnv'
-  `event_data` TEXT, -- Détails (ex: % de scroll, texte copié)
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  `id` int NOT NULL,
+  `session_id` binary(16) DEFAULT NULL,
+  `event_type` enum('view_section','download','copy_text','scroll_depth','heartbeat','reading_focus') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `element_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `event_data` mediumtext COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `telemetry_sessions`
+--
+
+CREATE TABLE `telemetry_sessions` (
+  `id` binary(16) NOT NULL,
+  `app_id` int NOT NULL,
+  `visitor_uuid` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_agent` mediumtext COLLATE utf8mb4_unicode_ci,
+  `browser_lang` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `started_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_activity` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `duration_seconds` int DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Indexes for dumped tables
@@ -269,6 +235,13 @@ ALTER TABLE `applications`
 --
 ALTER TABLE `crm_events`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `crm_events_attached`
+--
+ALTER TABLE `crm_events_attached`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `event_id` (`event_id`);
 
 --
 -- Indexes for table `cv_education`
@@ -315,11 +288,16 @@ ALTER TABLE `rel_app_doc`
   ADD KEY `fk_doc` (`doc_id`);
 
 --
+-- Indexes for table `settings`
+--
+ALTER TABLE `settings`
+  ADD PRIMARY KEY (`setting_key`);
+
+--
 -- Indexes for table `telemetry_events`
 --
 ALTER TABLE `telemetry_events`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_session` (`session_id`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `telemetry_sessions`
@@ -335,13 +313,19 @@ ALTER TABLE `telemetry_sessions`
 -- AUTO_INCREMENT for table `applications`
 --
 ALTER TABLE `applications`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `crm_events`
 --
 ALTER TABLE `crm_events`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+
+--
+-- AUTO_INCREMENT for table `crm_events_attached`
+--
+ALTER TABLE `crm_events_attached`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `cv_education`
@@ -353,41 +337,41 @@ ALTER TABLE `cv_education`
 -- AUTO_INCREMENT for table `cv_experiences`
 --
 ALTER TABLE `cv_experiences`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT for table `cv_languages`
 --
 ALTER TABLE `cv_languages`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `cv_skills`
 --
 ALTER TABLE `cv_skills`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `documents`
 --
 ALTER TABLE `documents`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `telemetry_events`
 --
 ALTER TABLE `telemetry_events`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `telemetry_sessions`
---
-ALTER TABLE `telemetry_sessions`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1504;
 
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `crm_events_attached`
+--
+ALTER TABLE `crm_events_attached`
+  ADD CONSTRAINT `crm_events_attached_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `crm_events` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `rel_app_doc`
@@ -395,12 +379,6 @@ ALTER TABLE `telemetry_sessions`
 ALTER TABLE `rel_app_doc`
   ADD CONSTRAINT `fk_app` FOREIGN KEY (`app_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_doc` FOREIGN KEY (`doc_id`) REFERENCES `documents` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `telemetry_events`
---
-ALTER TABLE `telemetry_events`
-  ADD CONSTRAINT `fk_session` FOREIGN KEY (`session_id`) REFERENCES `telemetry_sessions` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
