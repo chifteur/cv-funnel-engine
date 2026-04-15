@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $db->prepare("INSERT INTO applications (slug, company_name, job_title, job_url, custom_pitch, why_me, strengths, perfect_match, default_lens, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
                 $stmt->execute([$_POST['slug'], $_POST['company_name'], $_POST['job_title'], $_POST['job_url'] ?? '', $_POST['custom_pitch'] ?? '', $_POST['why_me'] ?? '', $_POST['strengths'] ?? '', $_POST['perfect_match'] ?? '', $_POST['default_lens'], $_POST['status'] ?? 'sent']);
                 // Si c'est un INSERT, récupère le nouvel ID
-                if (!$app_id) $app_id = $db->lastInsertId();
+                $app_id = $db->lastInsertId();
 
                 // 1. On insère les nouveaux si sélectionnés
                 if (!empty($_POST['selected_docs'])) {
