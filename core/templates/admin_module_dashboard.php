@@ -16,32 +16,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // PROFIL MASTER
         if ($action === 'update_profile') {
-            // On stocke les valeurs dans un tableau pour garder le code propre
-            $data = [
-                $_POST['full_name'] ?? '',
-                $_POST['job_title'] ?? '',
-                $_POST['bio'] ?? '',
-                $_POST['email'] ?? '',
-                $_POST['phone'] ?? '',
-                $_POST['linkedin_url'] ?? '',
-                $_POST['photo_path'] ?? ''
-            ];            
-            // 2. La requête d'Upsert (Insert si l'ID 1 n'existe pas, Update s'il existe)
-            $sql = "INSERT INTO profile_settings 
-                        (id, full_name, job_title, bio, email, phone, linkedin_url, photo_path) 
-                    VALUES 
-                        (1, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE 
-                        full_name=?, job_title=?, bio=?, email=?, phone=?, linkedin_url=?, photo_path=?";
-            
-            $stmt = $db->prepare($sql);
-            
-            // 3. On exécute la requête. 
-            // On utilise array_merge($data, $data) car il y a 7 "?" pour le INSERT et 7 "?" pour le UPDATE.
-            $stmt->execute(array_merge($data, $data));
-            $message = "✅ Profil Master mis à jour.";
-        }
+            // Par défaut, on garde l'ancien chemin de la photo
+            $photoPath = $_POST['existing_photo_path'] ?? ''; 
 
+            // Gestion de l'upload de la nouvelle photo
+            if (isset($_FILES['photo_upload']) && $_FILES['photo_upload']['error'] === UPLOAD_ERR_OK) {
+                // Chemin absolu vers le dossier (à ajuster selon la position de ton script par rapport au dossier public)
+                $uploadDir = __DIR__ . '/../../public/assets/images/';
+                
+                // On s'assure que le dossier existe (comme on l'a fait pour le storage)
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                $fileTmpPath = $_FILES['photo_upload']['tmp_name'];
+                $fileName = $_FILES['photo_upload']['name'];
+                $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                
+                // Sécurité : on limite les extensions autorisées
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+                
+                if (in_array($fileExtension, $allowedExtensions)) {
+                    // On génère un nom unique pour éviter les conflits et forcer le rafraîchissement du cache navigateur
+                    $newFileName = 'profile_' . time() . '.' . $fileExtension;
+                    $destPath = $uploadDir . $newFileName;
+                    
+                    if (move_uploaded_file($fileTmpPath, $destPath)) {
+                        // Le chemin relatif web à enregistrer en base de données
+                        $photoPath = '/public/assets/images/' . $newFileName;
+                    } else {
+                        $message = "❌ Erreur lors de l'enregistrement de l'image sur le serveur.";
+                    }
+                } else {
+                    $message = "❌ Format d'image non supporté (utilisez JPG, PNG ou WEBP).";
+                }
+            }
+        
+            // On exécute la mise à jour seulement s'il n'y a pas eu d'erreur d'upload
+            if (empty($message) || strpos($message, '❌') === false) {
+                // 1. On stocke les valeurs dans un tableau
+                $data = [
+                    $_POST['full_name'] ?? '',
+                    $_POST['job_title'] ?? '',
+                    $_POST['bio'] ?? '',
+                    $_POST['email'] ?? '',
+                    $_POST['phone'] ?? '',
+                    $_POST['linkedin_url'] ?? '',
+                    $photoPath // On utilise la variable traitée ci-dessus
+                ];            
+                // 2. La requête d'Upsert (Insert si l'ID 1 n'existe pas, Update s'il existe)
+                $sql = "INSERT INTO profile_settings 
+                            (id, full_name, job_title, bio, email, phone, linkedin_url, photo_path) 
+                        VALUES 
+                            (1, ?, ?, ?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE 
+                            full_name=?, job_title=?, bio=?, email=?, phone=?, linkedin_url=?, photo_path=?";
+                
+                $stmt = $db->prepare($sql);
+                
+                // 3. On exécute la requête. 
+                // On utilise array_merge($data, $data) car il y a 7 "?" pour le INSERT et 7 "?" pour le UPDATE.
+                    $stmt->execute(array_merge($data, $data));
+                $message = "✅ Profil Master mis à jour.";
+            }
+        }
         // CANDIDATURES /GO/
         if ($action === 'add_app') {
             try {
@@ -584,8 +622,10 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
 
                     <!-- PROFIL -->
                     <div x-show="section === 'profile'" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                        <form method="POST" class="grid grid-cols-2 gap-6">
+                        <form method="POST" enctype="multipart/form-data" class="grid grid-cols-2 gap-6">
                             <input type="hidden" name="action" value="update_profile">
+                            
+                            <input type="hidden" name="existing_photo_path" value="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>">
 
                             <div class="col-span-1">
                                 <label class="block text-[10px] font-black uppercase text-slate-400">Nom Complet</label>
@@ -609,9 +649,16 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                                 <label class="block text-[10px] font-black uppercase text-slate-400">URL LinkedIn</label>
                                 <input type="url" name="linkedin_url" value="<?= htmlspecialchars($profile['linkedin_url'] ?? '') ?>" placeholder="https://linkedin.com/in/..." class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500 text-sm">
                             </div>
+                            
                             <div class="col-span-1">
-                                <label class="block text-[10px] font-black uppercase text-slate-400">Chemin de la photo (Photo Path)</label>
-                                <input type="text" name="photo_path" value="<?= htmlspecialchars($profile['photo_path'] ?? '') ?>" placeholder="images/photo.jpg" class="w-full mt-1 border-b py-2 outline-none font-bold focus:border-blue-500 text-sm">
+                                <label class="block text-[10px] font-black uppercase text-slate-400">Photo de profil</label>
+                                <?php if (!empty($profile['photo_path'])): ?>
+                                    <div class="mt-2 mb-1">
+                                        <img src="<?= htmlspecialchars($profile['photo_path']) ?>" alt="Aperçu" class="h-10 w-10 rounded-full object-cover border border-slate-200">
+                                    </div>
+                                <?php endif; ?>
+                                <input type="file" name="photo_upload" accept="image/jpeg, image/png, image/webp" class="w-full mt-1 border-b py-1 outline-none text-sm">
+                                <p class="text-[10px] text-slate-400 mt-1">Laissez vide pour conserver la photo actuelle.</p>
                             </div>
 
                             <div class="col-span-2">
@@ -622,7 +669,6 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                             <button type="submit" class="col-span-2 bg-slate-900 text-white py-3 rounded-full font-bold hover:bg-blue-600 transition shadow-lg">Sauvegarder Profil</button>
                         </form>
                     </div>
-
                     <!-- EXPERIENCES -->
                     <div x-show="section === 'experiences'" class="space-y-4">
                         <div class="grid gap-3">
