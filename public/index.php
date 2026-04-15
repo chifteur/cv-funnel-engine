@@ -5,6 +5,14 @@
 session_start(); // DOIT ÊTRE ICI, avant tout le reste.
 
 require_once __DIR__ . '/../core/config.php'; // Paramètres (DB, constantes)
+
+// 🛑 HOOK DE PROVISIONING
+// Si la configuration n'existe pas, on lance le script d'installation et on coupe l'exécution.
+if (!file_exists($configFile)) {
+    require_once __DIR__ . '/../core/provisioning.php';
+    exit;
+}
+
 require_once __DIR__ . '/../core/logger.php'; // Logger pour les erreurs et le debug
 require_once __DIR__ . '/../core/tools.php';  // Utilitaires (UUID, helpers)
 require_once __DIR__ . '/../core/router.php'; // Logique de routage (utilise 1 et 2)
