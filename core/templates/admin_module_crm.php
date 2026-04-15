@@ -263,56 +263,75 @@ $type_icons = [
                 </form>
             </div>
 
-            <div x-show="showForm" x-transition class="mb-10 bg-white shadow-lg border-slate-200 p-6 rounded-3xl border border-blue-500/20 shadow-2xl">
-                <form method="POST" enctype="multipart/form-data" class="grid grid-cols-2 gap-5">
+            <div x-show="showForm" x-transition class="mb-10 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-2xl">
+                <form method="POST" enctype="multipart/form-data" class="grid grid-cols-2 gap-6">
                     <input type="hidden" name="action" value="add_event">
-                    <div class="space-y-1">
-                        <label class="text-[10px] font-black text-slate-500 uppercase px-2">Type</label>
-                            <select name="type" class="w-full bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-3 text-slate-900 focus:border-blue-500 outline-none">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase px-2 tracking-widest">Type</label>
+                        <select name="type" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
                             <?php foreach ($type_icons as $type => $icon): ?>
                                 <option value="<?= $type ?>"><?= $type ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="space-y-1">
-                        <label class="text-[10px] font-black text-slate-500 uppercase px-2">Date</label>
-                        <input type="datetime-local" name="event_date" x-init="$el.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)" class="w-full bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-3 text-slate-900 outline-none">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase px-2 tracking-widest">Date</label>
+                        <input type="datetime-local" name="event_date" x-init="$el.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
                     </div>
-                    <div class="col-span-2 space-y-1">
-                        <label class="text-[10px] font-black text-slate-500 uppercase px-2">Commentaires</label>
-                        <textarea name="comment" rows="3" class="w-full bg-slate-50 border border-slate-200 shadow-sm rounded-xl p-3 text-slate-900 outline-none" placeholder="Qu'est-ce qui s'est dit ?"></textarea>
+                    <div class="col-span-2 space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase px-2 tracking-widest">Commentaires</label>
+                        <textarea name="comment" rows="3" 
+                                class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                                placeholder="Qu'est-ce qui s'est dit ?"></textarea>
                     </div>
-                    <div class="col-span-2 space-y-1">
-                        <label class="text-[10px] font-black text-blue-500 uppercase px-2">Prochaine étape</label>
-                        <input type="text" name="next_action" class="w-full bg-slate-50 border border-blue-500/20 rounded-xl p-3 text-slate-900 outline-none" placeholder="Relancer dans 3 jours...">
+                    <div class="col-span-2 space-y-2">
+                        <label class="text-[10px] font-black text-blue-500 uppercase px-2 tracking-widest">Prochaine étape</label>
+                        <input type="text" name="next_action" 
+                            class="w-full bg-blue-50/50 border border-blue-200 rounded-xl p-4 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                            placeholder="Relancer dans 3 jours...">
                     </div>
 
-                    <div class="col-span-2 space-y-1">
-                        <template x-for="(attach, index) in attachments" :key="index">
-                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                                <div class="flex gap-2">
-                                    <select :name="'attachments['+index+'][type]'" x-model="attach.type" class="text-[10px] font-black uppercase bg-white border rounded-lg px-2">
-                                        <option value="url">URL</option>
-                                        <option value="file">DOC</option>
-                                    </select>
-                                    <input type="text" :name="'attachments['+index+'][label]'" placeholder="Label..." class="w-full bg-slate-50 border border-blue-500/20 rounded-xl p-3 text-slate-900 outline-none">
+                    <div class="col-span-2 space-y-3 mt-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase px-2 tracking-widest">Documents & Liens</label>
+                        
+                        <div class="space-y-3">
+                            <template x-for="(attach, index) in attachments" :key="index">
+                                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 transition-all hover:border-blue-300">
+                                    
+                                    <div class="flex gap-3 items-center">
+                                        <select :name="'attachments['+index+'][type]'" x-model="attach.type" 
+                                                class="text-[10px] font-black uppercase bg-white border border-slate-200 rounded-xl px-3 py-3 outline-none focus:border-blue-500 cursor-pointer">
+                                            <option value="url">Lien URL</option>
+                                            <option value="file">Fichier</option>
+                                        </select>
+                                        
+                                        <input type="text" :name="'attachments['+index+'][label]'" placeholder="Label..." 
+                                            class="flex-1 bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                                    </div>
+                                    
+                                    <template x-if="attach.type === 'url'">
+                                        <input type="url" :name="'attachments['+index+'][value]'" x-model="attach.value" @input="addNext(index)" placeholder="https://..." 
+                                            class="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-blue-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-mono">
+                                    </template>
+                                    
+                                    <template x-if="attach.type === 'file'">
+                                        <input type="file" :name="'attachment_files['+index+']'" @change="attach.file = $event.target.value; addNext(index)" 
+                                            class="w-full bg-white border border-slate-200 rounded-xl p-2 text-sm text-slate-500 file:bg-slate-900 file:text-white file:border-0 file:rounded-lg file:px-4 file:py-2 file:text-[10px] file:font-black file:uppercase file:cursor-pointer hover:file:bg-blue-600 file:transition-colors cursor-pointer">
+                                    </template>
                                 </div>
-                                <template x-if="attach.type === 'url'">
-                                    <input type="url" :name="'attachments['+index+'][value]'" x-model="attach.value" @input="addNext(index)" placeholder="https://..." class="w-full bg-slate-50 border border-blue-500/20 rounded-xl p-3 text-slate-900 outline-none">
-                                </template>
-                                <template x-if="attach.type === 'file'">
-                                    <input type="file" :name="'attachment_files['+index+']'" @change="attach.file = $event.target.value; addNext(index)" class="w-full bg-slate-50 border border-blue-500/20 file:bg-blue-50 file:border-0 file:rounded-lg file:px-3 file:py-1 file:font-black">
-                                </template>
-                            </div>
-                        </template>
+                            </template>
+                        </div>
                     </div>
 
-                    <div class="col-span-2 flex justify-end gap-3">
-                        <button type="submit" class="bg-white text-black px-8 py-3 rounded-xl font-black hover:bg-blue-400 transition">ENREGISTRER</button>
+                    <div class="col-span-2 flex justify-end gap-3 mt-4">
+                        <button type="submit" 
+                                class="bg-slate-900 text-white px-8 py-4 rounded-xl text-[10px] tracking-[0.2em] font-black uppercase hover:bg-blue-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+                            ENREGISTRER
+                        </button>
                     </div>
                 </form>
             </div>
-
             <?php if (!empty($last_telemetry_events)): ?>
                         <div class="mb-8 space-y-2 opacity-60 hover:opacity-100 transition-opacity">
                             <p class="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-4 mb-3">Activités récentes détectées</p>
@@ -338,49 +357,56 @@ $type_icons = [
                     <p class="text-slate-600 font-bold italic tracking-tight">Aucune interaction enregistrée pour <?= htmlspecialchars($current_app['company_name']) ?>.</p>
                 </div>
             <?php else: ?>
-                <div class="space-y-6">
+                <div class="relative space-y-8 before:absolute before:inset-y-4 before:left-7 before:w-0.5 before:bg-slate-100">
+                    
                     <?php foreach ($crm_events as $event): 
-                        // On récupère la classe de l'icône et on sépare la couleur de fond
-                        $iconClass = $type_icons[$event['type']] ?? 'fa-solid fa-calendar text-slate-500 bg-slate-50';
+                        // 1. On récupère la classe brute
+                        $iconRaw = $type_icons[$event['type']] ?? 'fa-solid fa-calendar text-slate-500 bg-slate-50';
+                        
+                        // 2. On isole le bg- pour le conteneur parent
+                        $bgClass = strpos($iconRaw, 'bg-') !== false ? explode(' ', strstr($iconRaw, 'bg-'))[0] : 'bg-slate-50';
+                        
+                        // 3. On NETTOIE la classe pour l'icône (on retire le bg-)
+                        $iClass = trim(str_replace($bgClass, '', $iconRaw));
                     ?>
-                        <div class="flex gap-6 items-start group">
+                        <div class="relative z-10 flex gap-6 items-start group">
                             
-                            <div class="shrink-0 w-14 h-14 <?= strpos($iconClass, 'bg-') !== false ? explode(' ', strstr($iconClass, 'bg-'))[0] : 'bg-slate-50' ?> rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm group-hover:scale-110 transition-transform">
-                                <i class="<?= $iconClass ?> text-xl"></i>
+                            <div class="shrink-0 w-14 h-14 <?= $bgClass ?> rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm ring-8 ring-slate-50 group-hover:scale-110 transition-all duration-300">
+                                <i class="<?= $iClass ?> text-xl group-hover:scale-110 transition-transform"></i>
                             </div>
 
-                            <div class="flex-1 bg-white border border-slate-200 rounded-3xl p-5 shadow-sm group-hover:border-blue-200 transition-colors">
+                            <div class="flex-1 bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300">
                                 
-                                <div class="flex justify-between items-center mb-3">
-                                    <h3 class="font-black text-slate-900 text-sm uppercase tracking-tighter">
-                                        <?= $event['type'] ?>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-black text-slate-900 text-xs uppercase tracking-[0.2em]">
+                                        <?= htmlspecialchars($event['type']) ?>
                                     </h3>
-                                    <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
-                                        <?= date('d.m.Y @ H:i', strtotime($event['event_date'])) ?>
+                                    <span class="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                                        <?= date('d.m.Y • H:i', strtotime($event['event_date'])) ?>
                                     </span>
                                 </div>
 
-                                <div class="text-sm text-slate-600 leading-relaxed">
+                                <div class="text-sm text-slate-600 leading-relaxed font-medium">
                                     <?= nl2br(htmlspecialchars($event['comment'])) ?>
                                 </div>
 
-                                <?php if ($event['next_action']): ?>
-                                    <div class="mt-4 pt-4 border-t border-slate-50 flex items-center gap-3">
-                                        <div class="flex items-center gap-2 bg-blue-600 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-tighter">
-                                            <i class="fa-solid fa-star text-[8px]"></i> NEXT STEP
+                                <?php if (!empty($event['next_action'])): ?>
+                                    <div class="mt-5 bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3 group-hover:bg-blue-50 transition-colors">
+                                        <div class="flex items-center gap-2 bg-blue-600 text-white text-[9px] font-black px-2 py-1.5 rounded-lg uppercase tracking-widest shrink-0 shadow-sm shadow-blue-200">
+                                            <i class="fa-solid fa-forward-step"></i> À FAIRE
                                         </div>
-                                        <span class="text-xs font-bold text-blue-600">
+                                        <span class="text-sm font-bold text-blue-800 leading-tight pt-0.5">
                                             <?= htmlspecialchars($event['next_action']) ?>
                                         </span>
                                     </div>
                                 <?php endif; ?>
 
                                 <?php if (!empty($event['attachments'])): ?>
-                                    <div class="flex flex-wrap gap-3 pt-6 border-t border-slate-50">
+                                    <div class="flex flex-wrap gap-3 mt-6 pt-6 border-t border-slate-50">
                                         <?php foreach ($event['attachments'] as $a): ?>
                                             <a href="<?= $a['attached_type'] === 'file' ? '/'.$a['link'] : $a['link'] ?>" target="_blank" 
-                                            class="inline-flex items-center gap-2 px-5 py-2.5 <?= $a['attached_type'] === 'url' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-700' ?> rounded-2xl text-[10px] font-black hover:scale-105 transition transform duration-200">
-                                                <i class="fa-solid <?= $a['attached_type'] === 'url' ? 'fa-link' : 'fa-file-pdf' ?>"></i>
+                                            class="inline-flex items-center gap-2 px-4 py-2 <?= $a['attached_type'] === 'url' ? 'bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-800 hover:text-white' ?> rounded-xl text-[10px] font-black uppercase tracking-widest hover:-translate-y-1 transition-all duration-300 shadow-sm">
+                                                <i class="fa-solid <?= $a['attached_type'] === 'url' ? 'fa-link' : 'fa-file' ?> text-xs"></i>
                                                 <?= htmlspecialchars($a['label'] ?? 'Document') ?>
                                             </a>
                                         <?php endforeach; ?>
