@@ -68,6 +68,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("Impossible de créer config.php. Vérifiez les droits d'écriture sur le dossier 'core/'.");
         }
 
+
+        // 5. Création de l'arborescence des dossiers requis
+        // En partant de /core/, on remonte d'un cran puis on va dans storage/docs
+        $docsDir = __DIR__ . '/../storage/docs'; 
+        
+        if (!is_dir($docsDir)) {
+            // Le paramètre 'true' crée tous les dossiers intermédiaires manquants
+            if (!mkdir($docsDir, 0755, true)) {
+                throw new Exception("Impossible de créer le dossier $docsDir. Vérifiez les droits.");
+            }
+        }        
         $success = true;
 
     } catch (PDOException $e) {
@@ -103,9 +114,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="install-box">
     <?php if ($success): ?>
         <div class="success">
-            <h1>🎉 Installation terminée</h1>
-            <p>Le fichier de configuration a été créé et la base de données a été initialisée avec succès.</p>
-            <a href="/">Accéder à l'application</a>
+            <h1>🎉 Configuration réussie</h1>
+            <p>Le fichier de configuration a été créé, la base de données est prête et l'arborescence de stockage a été générée.</p>
+            
+            <p style="margin-top: 20px; font-weight: bold;">Prochaine étape :</p>
+            <a href="<?= htmlspecialchars($site_url) ?>/manage?key=<?= htmlspecialchars($admin_key) ?>" 
+               style="display: inline-block; padding: 12px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
+               Accéder à l'administration
+            </a>
+            
+            <p style="font-size: 12px; color: #888; margin-top: 15px;">
+                Note : Pensez à noter votre clé d'accès admin si vous ne l'avez pas déjà fait.
+            </p>
         </div>
     <?php else: ?>
         <h1>⚙️ Provisioning</h1>
