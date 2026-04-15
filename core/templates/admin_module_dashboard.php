@@ -761,6 +761,10 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
 
                 // 2. Récupération des fichiers sur le Disque
                 $docsPath = __DIR__ . '/../../storage/docs/';
+                // Création "à la volée" si le dossier n'existe pas
+                if (!is_dir($docsPath)) {
+                    mkdir($docsPath, 0755, true);
+                }
                 $diskFiles = array_diff(scandir($docsPath), array('.', '..'));
 
                 // 3. Calcul des anomalies
