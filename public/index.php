@@ -17,6 +17,12 @@ require_once $configFile; // Paramètres (DB, constantes)
 require_once __DIR__ . '/../core/logger.php'; // Logger pour les erreurs et le debug
 require_once __DIR__ . '/../core/tools.php';  // Utilitaires (UUID, helpers)
 require_once __DIR__ . '/../core/router.php'; // Logique de routage (utilise 1 et 2)
+$versionFile = __DIR__ . '/../core/version.php';
+if (file_exists($versionFile)) {
+    require_once $versionFile;
+} else {
+    define('APP_VERSION', 'dev-local');
+}
 
 // Gestion centralisée des erreurs et exceptions
 set_error_handler(function ($severity, $message, $file, $line) {

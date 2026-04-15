@@ -474,6 +474,9 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
     <div class="flex min-h-screen">
         <aside class="w-64 bg-slate-900 text-white p-6 sticky top-0 h-screen">
             <div class="text-2xl font-black mb-12 tracking-tighter text-blue-500 italic">MANGANESE<span class="text-white">OS</span></div>
+            <div class="text-xs text-slate-400 mt-8 text-center">
+                Core v<?= APP_VERSION ?> | DB v<?= htmlspecialchars(get_db_version($db)) ?>
+            </div>            
             <nav class="space-y-2">
                 <button @click="tab = 'apps'" :class="tab === 'apps' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-paper-plane w-5"></i> Candidatures
