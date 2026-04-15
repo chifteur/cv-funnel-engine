@@ -148,6 +148,23 @@ $type_icons = [
                                 <?= $telemetry_stats['last_seen'] ? date('d.m.Y @ H:i', strtotime($telemetry_stats['last_seen'])) : 'Jamais' ?>
                             </p>
                         </div>
+                        <?php if (!empty($current_app['job_url'])):
+                                // Extraction du domaine (ex: www.linkedin.com)
+                                $host = parse_url($current_app['job_url'], PHP_URL_HOST);
+                                // Nettoyage du www.
+                                $display_host = str_replace('www.', '', $host);
+                            ?>
+                            <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-3 px-4">
+                                <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Annonce originale</p>
+                                <a href="<?= htmlspecialchars($current_app['job_url']) ?>" 
+                                    target="_blank" 
+                                    class="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100 hover:text-blue-600 hover:border-blue-200 transition"
+                                    title="Voir l'annonce originale">
+                                        <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                        <?= htmlspecialchars($display_host) ?>
+                                </a>
+                            </div>                        
+                        <?php endif; ?>
                     </div>
                 </div>
                 

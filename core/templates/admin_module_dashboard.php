@@ -487,7 +487,19 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                                         }"
                                         x-text="app.status.toUpperCase()"></span>
                                 </div>
-                                <p class="text-slate-400 text-sm" x-text="app.job_title"></p>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <p class="text-slate-600 text-sm font-bold" x-text="app.job_title"></p>
+                                    
+                                    <template x-if="app.job_url">
+                                        <a :href="app.job_url" 
+                                        target="_blank" 
+                                        class="flex items-center gap-1 text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100 hover:text-blue-600 hover:border-blue-200 transition"
+                                        title="Voir l'annonce originale">
+                                            <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                            <span x-text="new URL(app.job_url).hostname.replace('www.', '')"></span>
+                                        </a>
+                                    </template>
+                                </div>
                                 <a :href="'/go/' + app.slug" target="_blank" class="text-blue-500 font-mono text-xs" x-text="'/go/' + app.slug"></a>
                             </div>
                             <div class="text-right flex items-center gap-4">
