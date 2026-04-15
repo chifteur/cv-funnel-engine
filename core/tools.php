@@ -47,3 +47,13 @@ function generate_uuid() {
         mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
     );
 }
+
+function get_db_version($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'db_version'");
+        $result = $stmt->fetch();
+        return $result ? $result['setting_value'] : 'inconnue';
+    } catch (PDOException $e) {
+        return 'non-initialisée';
+    }
+}
