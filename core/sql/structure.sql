@@ -65,6 +65,21 @@ CREATE TABLE `crm_events` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `crm_events_attached`
+--
+
+CREATE TABLE crm_events_attached (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    link VARCHAR(512) NOT NULL,
+    attached_type ENUM('url', 'file') NOT NULL,
+    label VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (event_id) REFERENCES crm_events(id) ON DELETE CASCADE
+);
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `cv_education`
 --
 

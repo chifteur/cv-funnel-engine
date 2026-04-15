@@ -3,6 +3,8 @@
  * Manganese OS - CRM avec Archive Télémétrie intégrée
  */
 
+require_once __DIR__ . "/../move_uploaded_file.php";
+
 $db = get_db_connection();
 $app_id = $_GET['app_id'] ?? null;
 
@@ -13,6 +15,8 @@ if ($app_id) {
     $stmt->execute([$app_id]);
     $current_app = $stmt->fetch();
 }
+
+$slug = $current_app['slug'];
 
 // 2. CHANGEMENT DE STATUT
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_status') {
@@ -26,19 +30,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// 3. SAUVEGARDE D'UN ÉVÉNEMENT
+// 3. SAUVEGARDE D'UN ÉVÉNEMENT AVEC PIÈCES JOINTES MULTIPLES
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_event') {
     // On convertit le format HTML (T) vers le format SQL (Espace)
     $event_date = str_replace('T', ' ', $_POST['event_date']);
+    $type = $_POST['type'] ?? 'note';
 
     $stmt = $db->prepare("INSERT INTO crm_events (app_id, event_date, type, comment, next_action) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([
         $app_id,
         $event_date,
-        $_POST['type'],
+        $type,
         $_POST['comment'],
         $_POST['next_action']
     ]);
+    $event_id = $db->lastInsertId();
+
+    // Traitement des pièces jointes dynamiques
+    if (isset($_POST['attachments'])) {
+        Logger::debug("CRM Upload Debug", ['post_data' => $_POST, 'files_data' => $_FILES]);
+
+        foreach ($_POST['attachments'] as $index => $attach) {
+            $type_attach = $attach['type'];
+            
+            if ($type_attach === 'url' && !empty($attach['value'])) {
+                $stmtAtt = $db->prepare("INSERT INTO crm_events_attached (event_id, link, attached_type, label) VALUES (?, ?, 'url', ?)");
+                $stmtAtt->execute([$event_id, $attach['value'], $attach['label'] ?? null]);
+            } 
+            elseif ($type_attach === 'file' && !empty($_FILES['attachment_files']['name'][$index])) {
+                $file_path = handleCrmFileUpload($_FILES['attachment_files'], $index, $slug);
+                if ($file_path) {
+                    // 1. On vérifie si l'utilisateur a tapé un label
+                    $custom_label = !empty($attach['label']) ? $attach['label'] : $_FILES['attachment_files']['name'][$index];
+                    
+                    // 2. On insère ce label en base de données                    
+                    $stmtAtt = $db->prepare("INSERT INTO crm_events_attached (event_id, link, attached_type, label) VALUES (?, ?, 'file', ?)");
+                    $stmtAtt->execute([$event_id, $file_path, $custom_label]);
+                }
+            }
+        }
+    }
     Logger::info("CRM: New event for " . ($current_app['company_name'] ?? $app_id));
     header("Location: ?key=$key&module=crm&app_id=$app_id");
     exit;
@@ -47,9 +78,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // 3. RÉCUPÉRATION DE L'HISTORIQUE
 $crm_events = [];
 if ($app_id) {
-    $stmt = $db->prepare("SELECT * FROM crm_events WHERE app_id = ? ORDER BY event_date DESC");
+    // 1 SEULE REQUÊTE : On ramène l'événement ET ses pièces jointes
+    $stmt = $db->prepare("
+        SELECT 
+            e.*, 
+            a.id AS attachment_id, 
+            a.link, 
+            a.attached_type, 
+            a.label 
+        FROM crm_events e
+        LEFT JOIN crm_events_attached a ON e.id = a.event_id
+        WHERE e.app_id = ?
+        ORDER BY e.event_date DESC, a.id ASC
+    ");
     $stmt->execute([$app_id]);
-    $crm_events = $stmt->fetchAll();
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. REGROUPEMENT EN PHP
+    $grouped_events = [];
+    
+    foreach ($results as $row) {
+        $eventId = $row['id'];
+        
+        // Si on croise cet événement pour la première fois, on le prépare
+        if (!isset($grouped_events[$eventId])) {
+            $grouped_events[$eventId] = $row; // Copie toutes les infos de l'event (type, comment, event_date...)
+            $grouped_events[$eventId]['attachments'] = []; // Initialise la liste des pièces jointes
+        }
+
+        // S'il y a une pièce jointe (LEFT JOIN renvoie NULL s'il n'y en a pas), on l'ajoute
+        if (!empty($row['attachment_id'])) {
+            $grouped_events[$eventId]['attachments'][] = [
+                'link' => $row['link'],
+                'attached_type' => $row['attached_type'],
+                'label' => $row['label']
+            ];
+        }
+    }
+    
+    // On réindexe proprement le tableau pour que le HTML le lise facilement
+    $crm_events = array_values($grouped_events);
 }
 
 // --- STATS TÉLÉMÉTRIE POUR CETTE APP ---
@@ -123,6 +191,14 @@ $type_icons = [
                 <p class="text-xs text-slate-500 mt-2">Veuillez retourner au dashboard et cliquer sur le bouton CRM d'une candidature valide.</p>
             </div>
         <?php else: ?>
+            <div class="max-w-7xl mx-auto p-8" x-data="{ 
+                attachments: [{ type: 'url', value: '', label: '' }],
+                addNext(index) {
+                    if (index === this.attachments.length - 1 && (this.attachments[index].value || this.attachments[index].file)) {
+                        this.attachments.push({ type: 'url', value: '', label: '' });
+                    }
+                }
+            }">
             <header class="flex justify-between items-end mb-8">
                 <div class="flex-1">
                     <div class="flex items-center gap-3 mb-2">
@@ -188,7 +264,7 @@ $type_icons = [
             </div>
 
             <div x-show="showForm" x-transition class="mb-10 bg-white shadow-lg border-slate-200 p-6 rounded-3xl border border-blue-500/20 shadow-2xl">
-                    <form method="POST" class="grid grid-cols-2 gap-5">
+                <form method="POST" enctype="multipart/form-data" class="grid grid-cols-2 gap-5">
                     <input type="hidden" name="action" value="add_event">
                     <div class="space-y-1">
                         <label class="text-[10px] font-black text-slate-500 uppercase px-2">Type</label>
@@ -210,6 +286,27 @@ $type_icons = [
                         <label class="text-[10px] font-black text-blue-500 uppercase px-2">Prochaine étape</label>
                         <input type="text" name="next_action" class="w-full bg-slate-50 border border-blue-500/20 rounded-xl p-3 text-slate-900 outline-none" placeholder="Relancer dans 3 jours...">
                     </div>
+
+                    <div class="col-span-2 space-y-1">
+                        <template x-for="(attach, index) in attachments" :key="index">
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                                <div class="flex gap-2">
+                                    <select :name="'attachments['+index+'][type]'" x-model="attach.type" class="text-[10px] font-black uppercase bg-white border rounded-lg px-2">
+                                        <option value="url">URL</option>
+                                        <option value="file">DOC</option>
+                                    </select>
+                                    <input type="text" :name="'attachments['+index+'][label]'" placeholder="Label..." class="w-full bg-slate-50 border border-blue-500/20 rounded-xl p-3 text-slate-900 outline-none">
+                                </div>
+                                <template x-if="attach.type === 'url'">
+                                    <input type="url" :name="'attachments['+index+'][value]'" x-model="attach.value" @input="addNext(index)" placeholder="https://..." class="w-full bg-slate-50 border border-blue-500/20 rounded-xl p-3 text-slate-900 outline-none">
+                                </template>
+                                <template x-if="attach.type === 'file'">
+                                    <input type="file" :name="'attachment_files['+index+']'" @change="attach.file = $event.target.value; addNext(index)" class="w-full bg-slate-50 border border-blue-500/20 file:bg-blue-50 file:border-0 file:rounded-lg file:px-3 file:py-1 file:font-black">
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
                     <div class="col-span-2 flex justify-end gap-3">
                         <button type="submit" class="bg-white text-black px-8 py-3 rounded-xl font-black hover:bg-blue-400 transition">ENREGISTRER</button>
                     </div>
@@ -277,6 +374,18 @@ $type_icons = [
                                         </span>
                                     </div>
                                 <?php endif; ?>
+
+                                <?php if (!empty($event['attachments'])): ?>
+                                    <div class="flex flex-wrap gap-3 pt-6 border-t border-slate-50">
+                                        <?php foreach ($event['attachments'] as $a): ?>
+                                            <a href="<?= $a['attached_type'] === 'file' ? '/'.$a['link'] : $a['link'] ?>" target="_blank" 
+                                            class="inline-flex items-center gap-2 px-5 py-2.5 <?= $a['attached_type'] === 'url' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-700' ?> rounded-2xl text-[10px] font-black hover:scale-105 transition transform duration-200">
+                                                <i class="fa-solid <?= $a['attached_type'] === 'url' ? 'fa-link' : 'fa-file-pdf' ?>"></i>
+                                                <?= htmlspecialchars($a['label'] ?? 'Document') ?>
+                                            </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>                                
                             </div>
                         </div>
                     <?php endforeach; ?>
