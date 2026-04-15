@@ -2,6 +2,13 @@ name: Deploiement sur DreamHost
 on:
   workflow_dispatch: # Permet le lancement manuel depuis l'onglet Actions
     inputs:
+      environment:
+        description: 'Environnement cible'
+        required: true
+        type: choice
+        options:
+          - manganese-dev
+          - manganese-prod
       reason:
         description: 'Raison du déploiement (optionnel)'
         required: false
@@ -9,11 +16,17 @@ on:
       dry_run:
         description: 'Simulation seulement (true/false)'
         required: true
-        default: 'true'
+        type: boolean # Utilisation du type boolean natif
+        default: true
+
 jobs:
   web-deploy:
-    name: Transfert des fichiers
+    name: Déploiement sur ${{ inputs.environment }}
     runs-on: ubuntu-latest
+    
+    # 🌟 C'est ici que la magie opère : GitHub va charger les variables spécifiques à ce choix
+    environment: ${{ inputs.environment }} 
+
     steps:
     - name: 🚚 Recuperation du code
       uses: actions/checkout@v4
@@ -21,9 +34,9 @@ jobs:
     - name: 🚀 Déploiement par rsync (SSH)
       uses: Burnett01/rsync-deployments@7.0.1
       with:
-        switches: >- # -a: archive, -v: verbose, -z: compress, --delete: nettoie le serveur          
+        switches: >-
             -avz --delete
-            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+            ${{ inputs.dry_run && '--dry-run' || '' }}
             --exclude='.git/'
             --exclude='.github/'
             --exclude='aurevoir2026/'
@@ -31,8 +44,11 @@ jobs:
             --exclude='logs/'
             --exclude='storage/'
             --exclude='core/config.php'
-        path: ./                  # Dossier source (votre dépôt GitHub)
-        remote_path: /home/manganese/manganese.ch/ # CHEMIN ABSOLU REQUIS
+        path: ./ # Dossier source (votre dépôt GitHub)
+        
+        # 🌟 Utilisation de la variable définie dans l'environnement GitHub
+        remote_path: ${{ vars.REMOTE_PATH }} # CHEMIN ABSOLU REQUIS
+        
         remote_host: ${{ secrets.FTP_SERVER }}
         remote_user: ${{ secrets.FTP_USERNAME }}
-        remote_key: ${{ secrets.SSH_PRIVATE_KEY }} # Utilisation d'une clé SSH (Recommandé)        exclude: |
+        remote_key: ${{ secrets.SSH_PRIVATE_KEY }} # Utilisation d'une clé SSH (Recommandé)
