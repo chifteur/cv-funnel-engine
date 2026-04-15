@@ -472,11 +472,12 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
         }
     </script>
     <div class="flex min-h-screen">
-        <aside class="w-64 bg-slate-900 text-white p-6 sticky top-0 h-screen">
-            <div class="text-2xl font-black mb-12 tracking-tighter text-blue-500 italic">MANGANESE<span class="text-white">OS</span></div>
-            <div class="text-xs text-slate-400 mt-8 text-center">
-                Core v<?= APP_VERSION ?> | DB v<?= htmlspecialchars(get_db_version($db)) ?>
-            </div>            
+        <aside class="w-64 bg-slate-900 text-white p-6 sticky top-0 h-screen flex flex-col">
+            
+            <div class="text-2xl font-black mb-8 tracking-tighter text-blue-500 italic">
+                CV Funnel <span class="text-white">Engine</span>
+            </div>
+            
             <nav class="space-y-2">
                 <button @click="tab = 'apps'" :class="tab === 'apps' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-paper-plane w-5"></i> Candidatures
@@ -490,6 +491,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                 <button @click="tab = 'stats'" :class="tab === 'stats' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-bolt w-5"></i> Télémétrie
                 </button>
+                
                 <div class="pt-4 pb-2 border-t border-slate-800 mt-4">
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Système & Debug</p>
                 </div>
@@ -506,6 +508,13 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                     <i class="fa-solid fa-bug w-5"></i> Debug Interne
                 </button>       
             </nav>
+
+            <div class="mt-auto pt-4 border-t border-slate-800">
+                <div class="text-[10px] text-slate-500 text-center font-mono">
+                    Core v<?= APP_VERSION ?> | DB v<?= htmlspecialchars(get_db_version($db)) ?>
+                </div>
+            </div>
+            
         </aside>
 
         <main class="flex-1 p-10">
