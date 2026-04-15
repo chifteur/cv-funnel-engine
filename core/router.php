@@ -185,7 +185,7 @@ function dispatch(string $request_uri): void {
             $sid_to_log = $_GET['sid'] ?? $_SESSION['current_telemetry_id'] ?? null;
 
             // 2. LOG DE L'ÉVÉNEMENT (Avec bouclier de protection)
-            if ($sid_to_log) {
+            if ($sid_to_log && str_starts_with($path, 'storage/docs/')) {
                 try {
                     // On logue l'action
                     log_event($db, $sid_to_log, 'download', basename($fullPath), "Téléchargement direct");
