@@ -181,10 +181,15 @@ CREATE TABLE `rel_app_doc` (
 -- Table structure for table `settings`
 --
 
-CREATE TABLE `settings` (
+CREATE TABLE IF NOT EXISTS `settings` (
   `setting_key` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `setting_value` text COLLATE utf8mb4_unicode_ci NOT NULL
+  `setting_value` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- On initialise la version à 1.0.0 lors du provisionning
+INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`) VALUES ('db_version', '1.0.0');
 
 -- --------------------------------------------------------
 
