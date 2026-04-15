@@ -30,6 +30,9 @@ jobs:
     steps:
     - name: 🚚 Recuperation du code
       uses: actions/checkout@v4
+    - name: 📝 Génération du fichier de version
+      # Extrait les 7 premiers caractères du hash du commit
+      run: echo "<?php define('APP_VERSION', '${GITHUB_SHA::7}');" > core/version.php
 
     - name: 🚀 Déploiement par rsync (SSH)
       uses: Burnett01/rsync-deployments@7.0.1
