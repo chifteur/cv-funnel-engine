@@ -16,8 +16,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // PROFIL MASTER
         if ($action === 'update_profile') {
-            $stmt = $db->prepare("UPDATE profile_settings SET full_name=?, job_title=?, bio=?, email=?, phone=?, linkedin_url=?, photo_path=? WHERE id=1");
-            $stmt->execute([$_POST['full_name'] ?? '', $_POST['job_title'] ?? '', $_POST['bio'] ?? '', $_POST['email'] ?? '', $_POST['phone'] ?? '', $_POST['linkedin_url'] ?? '', $_POST['photo_path'] ?? '']);
+            // On stocke les valeurs dans un tableau pour garder le code propre
+            $data = [
+                $_POST['full_name'] ?? '',
+                $_POST['job_title'] ?? '',
+                $_POST['bio'] ?? '',
+                $_POST['email'] ?? '',
+                $_POST['phone'] ?? '',
+                $_POST['linkedin_url'] ?? '',
+                $_POST['photo_path'] ?? ''
+            ];            
+            // 2. La requête d'Upsert (Insert si l'ID 1 n'existe pas, Update s'il existe)
+            $sql = "INSERT INTO profile_settings 
+                        (id, full_name, job_title, bio, email, phone, linkedin_url, photo_path) 
+                    VALUES 
+                        (1, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                        full_name=?, job_title=?, bio=?, email=?, phone=?, linkedin_url=?, photo_path=?";
+            
+            $stmt = $db->prepare($sql);
+            
+            // 3. On exécute la requête. 
+            // On utilise array_merge($data, $data) car il y a 7 "?" pour le INSERT et 7 "?" pour le UPDATE.
+            $stmt->execute(array_merge($data, $data));
             $message = "✅ Profil Master mis à jour.";
         }
 
