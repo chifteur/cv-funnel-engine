@@ -237,7 +237,7 @@ function dispatch(string $request_uri): void {
             return;
         }
         
-        require_once __DIR__ . '/../public/api/version.php';
+        require_once __DIR__ . '/api/version.php';
         return; // On arrête le script ici
     }
 
