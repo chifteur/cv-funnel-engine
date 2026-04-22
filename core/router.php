@@ -224,6 +224,20 @@ function dispatch(string $request_uri): void {
         return; // On arrête le script ici
     }
 
+    // 5. API version (Appels depuis le JS)
+    if ($path === 'api/version' || $path === 'api/version.php') {
+
+        $versionKey = $_GET['key'] ?? '';
+        
+        // Sécurité : Vérification de la clé
+        if ($versionKey !== VERSION_ACCESS_KEY) {
+            render_view('public_home');
+            return;
+        }
+        require_once __DIR__ . '/../public/api/version.php';
+        return; // On arrête le script ici
+    }
+
     // 5. Landing Page par défaut
     render_view('public_home');
 }

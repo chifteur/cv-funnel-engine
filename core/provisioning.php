@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $db_user = $_POST['db_user'] ?? '';
     $db_pass = $_POST['db_pass'] ?? '';
     $admin_key = $_POST['admin_key'] ?? '';
+    $version_key = $_POST['version_key'] ?? '';
 
     // Déduction intelligente de SITE_URL
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
@@ -61,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $configContent = preg_replace("/define\('DB_USER',\s*'.*?'\);/", "define('DB_USER', '" . addslashes($db_user) . "');", $configContent);
         $configContent = preg_replace("/define\('DB_PASS',\s*'.*?'\);/", "define('DB_PASS', '" . addslashes($db_pass) . "');", $configContent);
         $configContent = preg_replace("/define\('ADMIN_ACCESS_KEY',\s*'.*?'\);/", "define('ADMIN_ACCESS_KEY', '" . addslashes($admin_key) . "');", $configContent);
+        $configContent = preg_replace("/define\('VERSION_ACCESS_KEY',\s*'.*?'\);/", "define('VERSION_ACCESS_KEY', '" . addslashes($version_key) . "');", $configContent);
         $configContent = preg_replace("/define\('SITE_URL',\s*'.*?'\);/", "define('SITE_URL', '" . addslashes($site_url) . "');", $configContent);
 
         // 4. Écriture finale du fichier config.php
@@ -94,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Installation - MANGANESE OS</title>
+    <title>Installation - CV Funnel Engine</title>
     <style>
         body { font-family: system-ui, sans-serif; background: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .install-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
@@ -155,6 +157,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="form-group">
                 <label for="admin_key">Clé d'accès Admin (ADMIN_ACCESS_KEY)</label>
                 <input type="text" id="admin_key" name="admin_key" value="<?= htmlspecialchars($_POST['admin_key'] ?? bin2hex(random_bytes(16))) ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="version_key">Clé d'accès Version (VERSION_ACCESS_KEY) Demandée à l'admin la clef.</label>
+                <input type="text" id="version_key" name="version_key" value="<?= htmlspecialchars($_POST['version_key'] ?? bin2hex(random_bytes(16))) ?>" required>
             </div>
             <button type="submit">Installer & Initialiser SQL</button>
         </form>
