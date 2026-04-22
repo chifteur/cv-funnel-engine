@@ -224,21 +224,24 @@ function dispatch(string $request_uri): void {
         return; // On arrête le script ici
     }
 
-    // 5. API version (Appels depuis le JS)
+    // 5. API version (Appels depuis le JS du Dashboard ADMIN)
     if ($path === 'api/version' || $path === 'api/version.php') {
 
         $versionKey = $_GET['key'] ?? '';
         
-        // Sécurité : Vérification de la clé
+        // Sécurité : Vérification de la clé globale
         if ($versionKey !== VERSION_ACCESS_KEY) {
-            render_view('public_home');
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['status' => 'error', 'message' => 'Accès refusé']);
             return;
         }
+        
         require_once __DIR__ . '/../public/api/version.php';
         return; // On arrête le script ici
     }
 
-    // 5. Landing Page par défaut
+    // 6. Landing Page par défaut
     render_view('public_home');
 }
 
