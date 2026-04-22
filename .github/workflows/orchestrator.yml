@@ -1,0 +1,88 @@
+name: Orchestrateur DevOps (API)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement cible'
+        required: true
+        type: choice
+        options:
+          - manganese-dev
+          - manganese-prod
+      dry_run:
+        description: 'Simulation seulement'
+        required: true
+        type: boolean
+        default: true
+      run_db_tasks:
+        description: 'Backup & Migrations DB'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  web-deploy:
+    name: Déploiement sur ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }} 
+
+    steps:
+    - name: 🚚 Recuperation du code
+      uses: actions/checkout@v4
+
+    - name: 📝 Génération du fichier de version
+      run: echo "<?php define('APP_VERSION', '${GITHUB_SHA::7}');" > core/version.php
+
+    - name: 💾 Sauvegarde Centralisée DB (Admin)
+      if: ${{ inputs.run_db_tasks == true && inputs.dry_run == false }}
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          CONFIG_FILE="${{ vars.REMOTE_PATH }}core/config.php"
+          DB_USER=$(grep "define('DB_USER'" $CONFIG_FILE | cut -d"'" -f4)
+          DB_PASS=$(grep "define('DB_PASS'" $CONFIG_FILE | cut -d"'" -f4)
+          DB_NAME=$(grep "define('DB_NAME'" $CONFIG_FILE | cut -d"'" -f4)
+          DB_HOST=$(grep "define('DB_HOST'" $CONFIG_FILE | cut -d"'" -f4)
+          
+          # Chemin absolu vers le centre de contrôle Admin
+          ADMIN_BACKUP_DIR="/home/manganese/admin.manganese.ch/storage/backups_db"
+          mkdir -p $ADMIN_BACKUP_DIR
+          mkdir -p $ADMIN_BACKUP_DIR/${{ inputs.environment }}
+          
+          # Ajout de l'option --no-tablespaces et préfixe du nom de l'environnement
+          mysqldump --no-tablespaces -h $DB_HOST -u $DB_USER -p"$DB_PASS" $DB_NAME > $ADMIN_BACKUP_DIR/${{ inputs.environment }}_$(date +%F_%H%M%S).sql
+          
+          # Nettoyage spécifique à cet environnement (garde les 5 derniers)
+          ls -tp $ADMIN_BACKUP_DIR/${{ inputs.environment }}_*.sql | grep -v '/$' | tail -n +6 | xargs -I {} rm -- {}
+
+    - name: 🚀 Déploiement par rsync
+      uses: Burnett01/rsync-deployments@7.0.1
+      with:
+        switches: >-
+            -avz --delete
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+            --exclude='.git/'
+            --exclude='.github/'
+            --exclude='aurevoir2026/'
+            --exclude='http/'
+            --exclude='logs/'
+            --exclude='storage/'
+            --exclude='core/config.php'
+        path: ./
+        remote_path: ${{ vars.REMOTE_PATH }}
+        remote_host: ${{ secrets.FTP_SERVER }}
+        remote_user: ${{ secrets.FTP_USERNAME }}
+        remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: 🔄 Migrations MySQL
+      if: ${{ inputs.run_db_tasks == true && inputs.dry_run == false }}
+      run: |
+        RESPONSE=$(curl -s -w "\n%{http_code}" "${{ vars.SITE_URL }}/core/migrate.php?key=${{ secrets.ADMIN_ACCESS_KEY }}")
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        if [ "$HTTP_CODE" -ne 200 ]; then
+          exit 1
+        fi

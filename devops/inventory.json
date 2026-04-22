@@ -1,0 +1,16 @@
+{
+  "instances": [
+    {
+      "id": "manganese-dev",
+      "name": "Serveur de Test (Alpha)",
+      "url": "https://testcv.manganese.ch",
+      "criticality": "low"
+    },
+    {
+      "id": "manganese-prod",
+      "name": "Production Nathanaël Schmied",
+      "url": "https://manganese.ch",
+      "criticality": "high"
+    }
+  ]
+}
