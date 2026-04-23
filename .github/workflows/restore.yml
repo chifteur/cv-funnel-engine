@@ -1,0 +1,89 @@
+name: Restauration & Clonage (API)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Environnement cible'
+        required: true
+        type: string
+      criticality:
+        description: 'Criticité (high = blocage)'
+        required: true
+        type: string
+      sql_file:
+        description: 'Chemin relatif du Dump SQL'
+        required: true
+        type: string
+      sync_media:
+        description: 'Synchroniser storage/'
+        required: true
+        type: boolean
+        default: false
+      source_media_path:
+        description: 'Chemin absolu du storage source'
+        required: false
+        type: string
+
+jobs:
+  restore:
+    name: Restauration sur ${{ inputs.target_environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+
+    steps:
+    # --- 🛑 LE GARDE-FOU ABSOLU ---
+    - name: 🛑 Garde-fou de Criticité
+      run: |
+        if [ "${{ inputs.criticality }}" == "high" ]; then
+          echo "❌ ERREUR CRITIQUE : L'écrasement d'une instance avec une criticité 'high' est strictement interdit par l'inventaire."
+          exit 1
+        fi
+        echo "✅ Instance autorisée (criticité: ${{ inputs.criticality }}). Démarrage de la restauration..."
+
+    - name: 🚚 Recuperation du code
+      uses: actions/checkout@v4
+
+    - name: 💽 Import SQL & Rsync Médias
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          TARGET_CONFIG="${{ vars.REMOTE_PATH }}core/config.php"
+          SQL_FILE="/home/manganese/admin.manganese.ch/storage/backups_db/${{ inputs.sql_file }}"
+          
+          echo "Extraction des identifiants DB cibles..."
+          DB_USER=$(grep "define('DB_USER'" $TARGET_CONFIG | cut -d"'" -f4)
+          DB_PASS=$(grep "define('DB_PASS'" $TARGET_CONFIG | cut -d"'" -f4)
+          DB_NAME=$(grep "define('DB_NAME'" $TARGET_CONFIG | cut -d"'" -f4)
+          DB_HOST=$(grep "define('DB_HOST'" $TARGET_CONFIG | cut -d"'" -f4)
+          
+          if [ ! -f "$SQL_FILE" ]; then
+            echo "❌ ERREUR : Le dump SQL est introuvable au chemin $SQL_FILE"
+            exit 1
+          fi
+
+          echo "Restauration de la base de données $DB_NAME en cours..."
+          # Le dump SQL généré contient déjà les "DROP TABLE", donc cela écrase proprement
+          mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" $DB_NAME < "$SQL_FILE"
+          
+          if [ "${{ inputs.sync_media }}" == "true" ]; then
+            echo "Synchronisation locale (Rsync) des fichiers médias..."
+            # On synchronise le contenu exact du dossier storage/ source vers le storage/ cible
+            SOURCE_DIR="${{ inputs.source_media_path }}/storage/"
+            TARGET_DIR="${{ vars.REMOTE_PATH }}storage/"
+            
+            rsync -av --delete "$SOURCE_DIR" "$TARGET_DIR"
+          fi
+
+    - name: 🔄 Migrations Post-Restauration
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          echo "Lancement des migrations pour s'assurer que la DB restaurée est alignée avec le code cible..."
+          php ${{ vars.REMOTE_PATH }}core/migrate.php
