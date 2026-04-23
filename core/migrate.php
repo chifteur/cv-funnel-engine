@@ -5,9 +5,12 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/tools.php'; // Pour ta fonction get_db_version()
 
-// Sécurité : On s'assure que ce script ne peut être lancé que par une requête autorisée
+// Détection du mode d'exécution (CLI = Command Line Interface)
+$is_cli = php_sapi_name() === 'cli';
 $key = $_GET['key'] ?? '';
-if ($key !== ADMIN_ACCESS_KEY) {
+
+// On refuse l'accès SI on n'est PAS en ligne de commande ET que la clef est fausse
+if (!$is_cli && $key !== ADMIN_ACCESS_KEY) {
     http_response_code(403);
     die("Accès refusé.");
 }
