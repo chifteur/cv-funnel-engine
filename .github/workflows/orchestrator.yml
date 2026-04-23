@@ -6,11 +6,7 @@ on:
       environment:
         description: 'Environnement cible'
         required: true
-        type: choice
-        options:
-          - manganese-dev
-          - manganese-prod
-          - manganese-testdevops
+        type: string
       dry_run:
         description: 'Simulation seulement'
         required: true
