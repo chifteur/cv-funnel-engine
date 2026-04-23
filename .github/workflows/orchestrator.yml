@@ -10,6 +10,7 @@ on:
         options:
           - manganese-dev
           - manganese-prod
+          - manganese-testdevops
       dry_run:
         description: 'Simulation seulement'
         required: true
