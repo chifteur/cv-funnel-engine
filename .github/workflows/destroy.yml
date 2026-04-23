@@ -1,0 +1,56 @@
+name: Destruction d'Instance (API)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Environnement cible'
+        required: true
+        type: string
+      criticality:
+        description: 'Criticité (high = blocage)'
+        required: true
+        type: string
+
+jobs:
+  destroy:
+    name: Destruction de ${{ inputs.target_environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+
+    steps:
+    - name: 🛑 Garde-fou de Criticité
+      run: |
+        if [ "${{ inputs.criticality }}" == "high" ]; then
+          echo "❌ ERREUR CRITIQUE : La destruction d'une instance 'high' est strictement interdite."
+          exit 1
+        fi
+        echo "✅ Destruction autorisée. Adieu, ${{ inputs.target_environment }}."
+
+    - name: 🗑️ Suppression DB et Fichiers
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          TARGET_CONFIG="${{ vars.REMOTE_PATH }}core/config.php"
+          
+          if [ -f "$TARGET_CONFIG" ]; then
+            echo "Extraction des identifiants DB pour nettoyage..."
+            DB_USER=$(grep "define('DB_USER'" $TARGET_CONFIG | cut -d"'" -f4)
+            DB_PASS=$(grep "define('DB_PASS'" $TARGET_CONFIG | cut -d"'" -f4)
+            DB_NAME=$(grep "define('DB_NAME'" $TARGET_CONFIG | cut -d"'" -f4)
+            DB_HOST=$(grep "define('DB_HOST'" $TARGET_CONFIG | cut -d"'" -f4)
+            
+            echo "Nettoyage des tables de la base de données..."
+            mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -Nse 'show tables' $DB_NAME | while read table; do mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -e "SET FOREIGN_KEY_CHECKS=0; drop table \`$table\`;" $DB_NAME; done
+          else
+            echo "⚠️ Fichier config.php introuvable, la base de données ne peut pas être vidée."
+          fi
+
+          echo "Suppression de tous les fichiers du dossier cible..."
+          rm -rf ${{ vars.REMOTE_PATH }}/*
+          rm -rf ${{ vars.REMOTE_PATH }}/.[!.]* || true
+          
+          echo "Destruction terminée avec succès."
