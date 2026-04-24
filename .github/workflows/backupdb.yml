@@ -1,0 +1,39 @@
+name: Backup de la base de données (API)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement cible'
+        required: true
+        type: string
+
+jobs:
+  backup-db:
+    name: Déploiement sur ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }} 
+
+    steps:
+    - name: 💾 Sauvegarde Centralisée DB (Admin)
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          CONFIG_FILE="${{ vars.REMOTE_PATH }}core/config.php"
+          DB_USER=$(grep "define('DB_USER'" $CONFIG_FILE | cut -d"'" -f4)
+          DB_PASS=$(grep "define('DB_PASS'" $CONFIG_FILE | cut -d"'" -f4)
+          DB_NAME=$(grep "define('DB_NAME'" $CONFIG_FILE | cut -d"'" -f4)
+          DB_HOST=$(grep "define('DB_HOST'" $CONFIG_FILE | cut -d"'" -f4)
+          
+          # Chemin absolu vers le sous-dossier de l'environnement
+          ENV_BACKUP_DIR="/home/manganese/admin.manganese.ch/storage/backups_db/${{ inputs.environment }}"
+          mkdir -p $ENV_BACKUP_DIR
+          
+          # Ajout de l'option --no-tablespaces et sauvegarde DANS le dossier
+          mysqldump --no-tablespaces -h $DB_HOST -u $DB_USER -p"$DB_PASS" $DB_NAME > $ENV_BACKUP_DIR/backup_$(date +%F_%H%M%S).sql
+          
+          # Nettoyage spécifique à cet environnement (garde les 5 derniers)
+          ls -tp $ENV_BACKUP_DIR/backup_*.sql | grep -v '/$' | tail -n +6 | xargs -I {} rm -- {}
