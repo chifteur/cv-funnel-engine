@@ -38,7 +38,7 @@ if ($query_param === 'orphan_events' && $session_target) {
     <meta charset="UTF-8">
     <title><?= $title ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
 <body class="bg-slate-50 p-8 font-sans text-slate-900">
 
