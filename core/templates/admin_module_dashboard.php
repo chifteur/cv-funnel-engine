@@ -5,6 +5,7 @@
  */
 
 $db = get_db_connection();
+require_once __DIR__ . '/../category_helpers.php';
 $message = "";
 $debug_action = ""; // DEBUG LOG
 
@@ -374,6 +375,12 @@ $cv_skills = $db->query("SELECT * FROM cv_skills ORDER BY category")->fetchAll()
 $cv_edus = $db->query("SELECT * FROM cv_education ORDER BY year DESC")->fetchAll();
 $cv_langs = $db->query("SELECT * FROM cv_languages")->fetchAll();
 $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
+
+// --- 4. CATÉGORIES DYNAMIQUES ---
+init_categories_cache();
+$categories = get_categories();
+$default_category_exp = !empty($categories) ? $categories[0]['code'] : 'ops';
+$default_category_skill = !empty($categories) ? $categories[0]['code'] : 'management';
 ?>
 
 <!DOCTYPE html>
@@ -401,6 +408,9 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                 allApps: <?= json_encode($apps) ?>,
                 allLangs: <?= json_encode($cv_langs) ?>,
                 allDocs: <?= json_encode($allDocs) ?>,
+                categories: <?= json_encode($categories) ?>,
+                defaultCategoryExp: '<?= $default_category_exp ?>',
+                defaultCategorySkill: '<?= $default_category_skill ?>',
                 // 2. La fonction magique qui s'exécute au chargement d'Alpine
                 init() {
                     // On surveille 'tab' : dès qu'il change, on enregistre
@@ -739,7 +749,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                             </template>
                         </div>
                         <button @click="saveDragOrder()" x-show="allExps.length > 0" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600 transition mb-4">💾 Enregistrer l'ordre</button>
-                        <button @click="prepEdit('exp', {id:'', company:'', role:'', location:'', period:'', content:'', category:'ops'})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Experience</button>
+                        <button @click="prepEdit('exp', {id:'', company:'', role:'', location:'', period:'', content:'', category: defaultCategoryExp})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Experience</button>
                     </div>
 
                     <!-- SKILLS & LANGUAGES -->
@@ -759,7 +769,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                                     </div>
                                 </div>
                             <?php endforeach; ?>
-                            <button @click="prepEdit('skill', {id:'', label:'', level_text:'', category:'management'})" class="w-full border border-dashed p-2 text-xs text-slate-400 font-bold hover:text-blue-600">+ Ajouter Skill</button>
+                            <button @click="prepEdit('skill', {id:'', label:'', level_text:'', category: defaultCategorySkill})" class="w-full border border-dashed p-2 text-xs text-slate-400 font-bold hover:text-blue-600">+ Ajouter Skill</button>
                         </div>
                         <div class="space-y-4">
                             <h3 class="font-bold text-slate-400 uppercase text-xs">Langues</h3>
@@ -1211,11 +1221,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                         <input type="text" name="location" x-model="editItem.location" placeholder="Lieu" class="border p-3 rounded-xl w-full">
                         <input type="text" name="period" x-model="editItem.period" placeholder="Période" class="border p-3 rounded-xl w-full">
                     </div>
-                    <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
-                        <option value="ops">Opérations</option>
-                        <option value="management">Management</option>
-                        <option value="tech">Technique</option>
-                    </select>
+                    <?= render_category_select('category', '', '', ['x-model' => 'editItem.category']) ?>
                     <textarea name="content" x-model="editItem.content" placeholder="Description (une puce par ligne)..." rows="6" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
                 </div>
 
@@ -1223,11 +1229,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                 <div x-show="editItem && editItem.type === 'skill'" class="space-y-4">
                     <input type="text" name="label" x-model="editItem.label" placeholder="Compétence" class="border p-3 rounded-xl w-full">
                     <input type="text" name="level_text" x-model="editItem.level_text" placeholder="Niveau" class="border p-3 rounded-xl w-full">
-                    <select name="category" x-model="editItem.category" class="border p-3 rounded-xl w-full bg-slate-50">
-                        <option value="management">Management</option>
-                        <option value="ops">Opérations</option>
-                        <option value="tech">Technique</option>
-                    </select>
+                    <?= render_category_select('category', '', '', ['x-model' => 'editItem.category']) ?>
                 </div>
 
                 <!-- Education -->
@@ -1285,11 +1287,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
                             Statut du dossier
                         </label>
                         <div class="grid grid-cols-2 gap-4">
-                            <select name="default_lens" x-model="editItem.default_lens" class="border p-3 rounded-xl w-full bg-slate-50">
-                                <option value="ops">Opérations</option>
-                                <option value="management">Management</option>
-                                <option value="tech">Technique</option>
-                            </select>
+                            <?= render_category_select('default_lens', '', '', ['x-model' => 'editItem.default_lens']) ?>
                             <select name="status" x-model="editItem.status" class="border p-3 rounded-xl w-full bg-slate-50">
                                 <option value="sent">Envoyé</option>
                                 <option value="interview">Entretien</option>

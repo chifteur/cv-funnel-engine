@@ -22,6 +22,35 @@ SET time_zone = "+00:00";
 --
 
 -- --------------------------------------------------------
+--
+-- Table structure for table `cv_experiences`
+--
+
+CREATE TABLE category_dictionary (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Code unique: ops, management, tech',
+    label_short VARCHAR(100) NOT NULL COMMENT 'Label court pour les options: Opérations',
+    label_long VARCHAR(150) NOT NULL COMMENT 'Label long pour l\'affichage: Excellence Opérationnelle',
+    display_order INT NOT NULL DEFAULT 0 COMMENT 'Ordre d\'affichage',
+    color_hex VARCHAR(7) DEFAULT '#3b82f6' COMMENT 'Couleur associée (hex)',
+    icon_name VARCHAR(50) DEFAULT 'briefcase' COMMENT 'Icône FontAwesome',
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'Catégorie active ou archivée',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_code (code),
+    INDEX idx_display_order (display_order),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Dictionnaire centralisé des catégories de profil';
+
+-- 2. Insérer les données de migration existantes
+INSERT INTO category_dictionary (code, label_short, label_long, display_order, icon_name) VALUES
+('ops', 'Opérations', 'Excellence Opérationnelle', 1, 'cog'),
+('management', 'Management', 'Management & Gouvernance', 0, 'chess-king'),
+('tech', 'Technique', 'Techniques & Technologie', 2, 'microchip');
+
+-- --------------------------------------------------------
 
 --
 -- Table structure for table `applications`
@@ -34,7 +63,7 @@ CREATE TABLE `applications` (
   `job_title` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `job_url` text COLLATE utf8mb4_unicode_ci,
   `custom_pitch` text COLLATE utf8mb4_unicode_ci,
-  `default_lens` enum('management','ops','tech') COLLATE utf8mb4_unicode_ci DEFAULT 'ops',
+  `default_lens` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'ops' COMMENT 'Référence à category_dictionary.code',
   `created_at` datetime NOT NULL,
   `status` enum('sent','interview','rejected','accepted') COLLATE utf8mb4_unicode_ci DEFAULT 'sent',
   `why_me` text COLLATE utf8mb4_unicode_ci COMMENT 'Présentation personnelle',
@@ -89,8 +118,6 @@ CREATE TABLE `cv_education` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
 
--- --------------------------------------------------------
-
 --
 -- Table structure for table `cv_experiences`
 --
@@ -102,7 +129,7 @@ CREATE TABLE `cv_experiences` (
   `location` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `period` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `content` text COLLATE utf8mb3_unicode_ci,
-  `category` enum('management','tech','ops') COLLATE utf8mb3_unicode_ci DEFAULT NULL,
+  `category` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL COMMENT 'Référence à category_dictionary.code (ex: ops, management, tech)',
   `display_order` int NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
@@ -128,7 +155,7 @@ CREATE TABLE `cv_languages` (
 
 CREATE TABLE `cv_skills` (
   `id` int NOT NULL,
-  `category` enum('management','tech','ops') COLLATE utf8mb3_unicode_ci DEFAULT NULL,
+  `category` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL COMMENT 'Référence à category_dictionary.code (ex: ops, management, tech)',
   `label` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `level_text` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;

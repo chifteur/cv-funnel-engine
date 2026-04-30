@@ -5,6 +5,7 @@
  */
 
 $db = get_db_connection();
+require_once __DIR__ . '/../category_helpers.php';
 
 // On charge tout depuis la DB
 $profile = $db->query("SELECT * FROM profile_settings WHERE id = 1")->fetch();
@@ -187,7 +188,7 @@ foreach ($cv_skills as $skill) {
                 <?php foreach ($skills_by_category as $category => $skills): ?>
                 <div class="skill-category bg-white p-8 rounded-2xl shadow-sm border">
                     <h4 class="font-bold text-blue-600 uppercase text-xs tracking-widest mb-6">
-                        <?= $category === 'management' ? 'Management & Gouvernance' : ($category === 'ops' ? 'Excellence Opérationnelle' : 'Techniques & Technologie') ?>
+                        <?= get_category_label($category, 'long') ?>
                     </h4>
                     <ul class="space-y-3 text-gray-700">
                         <?php foreach ($skills as $skill): ?>
@@ -318,13 +319,16 @@ foreach ($cv_skills as $skill) {
                 <div class="space-y-6 bg-gray-800 p-8 rounded-2xl border border-gray-700">
                     <h4 class="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4 text-center">Indicateurs d'Adéquation</h4>
                     <?php 
-                    $lens_scores = [
-                        'management' => 85,
-                        'ops' => 95,
-                        'tech' => 80
-                    ];
+                    // Récupérer les scores dynamiquement depuis la BD
+                    $categories_indexed = get_categories_indexed();
+                    $lens_scores = [];
+                    foreach ($categories_indexed as $cat_code => $cat_data) {
+                        // Scores par défaut, à adapter selon votre logique métier
+                        $default_scores = ['management' => 85, 'ops' => 95, 'tech' => 80];
+                        $lens_scores[$cat_code] = $default_scores[$cat_code] ?? 80;
+                    }
                     $scores = [
-                        'Expertise ' . $lens => $lens_scores[$lens] ?? 85,
+                        'Expertise ' . get_category_label($lens, 'short') => $lens_scores[$lens] ?? 85,
                         'Culture D\'équipe' => 90,
                         'Expérience Opérationnelle' => 88
                     ];
