@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS category_dictionary (
 COMMENT='Dictionnaire centralisé des catégories de profil';
 
 -- 2. Insérer les données de migration existantes
-INSERT INTO category_dictionary (code, label_short, label_long, display_order, icon_name) VALUES
+INSERT IGNORE INTO category_dictionary (code, label_short, label_long, display_order, icon_name) VALUES
 ('ops', 'Opérations', 'Excellence Opérationnelle', 1, 'cog'),
 ('management', 'Management', 'Management & Gouvernance', 0, 'chess-king'),
 ('tech', 'Technique', 'Techniques & Technologie', 2, 'microchip');
