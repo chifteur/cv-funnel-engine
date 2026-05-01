@@ -20,7 +20,7 @@ on:
         required: true
         type: boolean
         default: false
-      source_media_path:
+      source_environment:
         description: 'Chemin absolu du storage source'
         required: false
         type: string
@@ -72,7 +72,7 @@ jobs:
           if [ "${{ inputs.sync_media }}" == "true" ]; then
             echo "Synchronisation locale (Rsync) des fichiers médias..."
             # On synchronise le contenu exact du dossier storage/ source vers le storage/ cible
-            SOURCE_DIR="${{ inputs.source_media_path }}/storage/"
+            SOURCE_DIR="${{ inputs.source_environment }}storage/"
             TARGET_DIR="${{ vars.REMOTE_PATH }}storage/"
             
             rsync -av --delete "$SOURCE_DIR" "$TARGET_DIR"
