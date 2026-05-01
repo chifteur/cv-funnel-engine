@@ -562,6 +562,14 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Système & Debug</p>
                 </div>
 
+                <a href="?key=<?= $key ?>&module=query_explorer" target="_blank" 
+                class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-database w-5 text-emerald-400"></i> Query Explorer
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
+                </a>
+
                 <a href="?key=<?= $key ?>&module=logs" target="_blank" 
                 class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
                     <div class="flex items-center gap-3">
