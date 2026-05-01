@@ -318,6 +318,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // --- CRUD CATÉGORIES DYNAMIQUES ---
+        if ($action === 'add_category') {
+            try {
+                $stmt = $db->prepare("INSERT INTO category_dictionary (code, label_short, label_long, display_order, color_hex, icon_name) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $_POST['code'],
+                    $_POST['label_short'],
+                    $_POST['label_long'],
+                    $_POST['display_order'] ?? 0,
+                    $_POST['color_hex'] ?? '#3b82f6',
+                    $_POST['icon_name'] ?? 'briefcase'
+                ]);
+                $message = "✅ Catégorie créée avec succès.";
+            } catch (Exception $e) {
+                $message = "❌ Erreur lors de la création de la catégorie : " . $e->getMessage();
+                Logger::error("Error in add_category action", ['exception' => $e->getMessage()]);
+            }
+        }
+
+        if ($action === 'update_category') {
+            try {
+                // On ne peut pas modifier le code (clef unique)
+                $stmt = $db->prepare("UPDATE category_dictionary SET label_short=?, label_long=?, display_order=?, color_hex=?, icon_name=? WHERE code=?");
+                $stmt->execute([
+                    $_POST['label_short'],
+                    $_POST['label_long'],
+                    $_POST['display_order'] ?? 0,
+                    $_POST['color_hex'] ?? '#3b82f6',
+                    $_POST['icon_name'] ?? 'briefcase',
+                    $_POST['code'] // WHERE clause
+                ]);
+                $message = "✅ Catégorie mise à jour avec succès.";
+                // Invalider le cache des catégories
+                unset($_SESSION['_categories_cache']);
+            } catch (Exception $e) {
+                $message = "❌ Erreur lors de la mise à jour de la catégorie : " . $e->getMessage();
+                Logger::error("Error in update_category action", ['exception' => $e->getMessage()]);
+            }
+        }
+
+        if ($action === 'delete_category') {
+            try {
+                // Soft delete : on marque la catégorie comme inactive
+                $stmt = $db->prepare("UPDATE category_dictionary SET is_active = FALSE WHERE code = ?");
+                $stmt->execute([$_POST['code']]);
+                $message = "✅ Catégorie archivée avec succès.";
+                // Invalider le cache des catégories
+                unset($_SESSION['_categories_cache']);
+            } catch (Exception $e) {
+                $message = "❌ Erreur lors de l'archivage de la catégorie : " . $e->getMessage();
+                Logger::error("Error in delete_category action", ['exception' => $e->getMessage()]);
+            }
+        }
+
         } catch (Exception $e) {
         $message = "❌ Erreur SQL : " . $e->getMessage();
         Logger::error("SQL Error", ['exception' => $e->getMessage(), 'post_data' => $_POST]);
@@ -379,6 +433,7 @@ $allDocs = $db->query("SELECT * FROM documents ORDER BY category")->fetchAll();
 // --- 4. CATÉGORIES DYNAMIQUES ---
 init_categories_cache();
 $categories = get_categories();
+$allCategories = $db->query("SELECT * FROM category_dictionary ORDER BY display_order ASC")->fetchAll();
 $default_category_exp = !empty($categories) ? $categories[0]['code'] : 'ops';
 $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'management';
 ?>
@@ -408,6 +463,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                 allApps: <?= json_encode($apps) ?>,
                 allLangs: <?= json_encode($cv_langs) ?>,
                 allDocs: <?= json_encode($allDocs) ?>,
+                allCategories: <?= json_encode($allCategories) ?>,
                 categories: <?= json_encode($categories) ?>,
                 defaultCategoryExp: '<?= $default_category_exp ?>',
                 defaultCategorySkill: '<?= $default_category_skill ?>',
@@ -640,6 +696,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                         <button @click="section = 'experiences'" :class="section === 'experiences' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'" class="pb-2 px-4 border-b-2 transition">Parcours</button>
                         <button @click="section = 'skills'" :class="section === 'skills' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'" class="pb-2 px-4 border-b-2 transition">Skills & Langues</button>
                         <button @click="section = 'education'" :class="section === 'education' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'" class="pb-2 px-4 border-b-2 transition">Éducation</button>
+                        <button @click="section = 'categories'" :class="section === 'categories' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'" class="pb-2 px-4 border-b-2 transition">Catégories</button>
                     </div>
 
                     <!-- PROFIL -->
@@ -838,6 +895,65 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                             <?php endforeach; ?>
                         </div>
                         <button @click="prepEdit('edu', {id:'', degree:'', institution:'', year:'', icon:''})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Formation</button>
+                    </div>
+
+                    <!-- CATÉGORIES DYNAMIQUES -->
+                    <div x-show="section === 'categories'" class="space-y-4">
+                        <h3 class="font-bold text-slate-400 uppercase text-sm tracking-wider mb-6">Dictionnaire de Catégories</h3>
+                        <div class="grid gap-3">
+                            <template x-for="cat in allCategories" :key="cat.code">
+                                <div class="bg-white p-4 rounded-xl border flex justify-between items-center group shadow-sm" :class="!cat.is_active ? 'bg-slate-50 opacity-50' : ''">
+                                    <div class="flex items-center gap-4 flex-1">
+                                        <div class="flex items-center justify-center w-10 h-10 rounded-lg" :style="'background-color: ' + cat.color_hex + '20; color: ' + cat.color_hex">
+                                            <i :class="'fa-solid fa-' + cat.icon_name"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-2">
+                                                <code class="text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-600" x-text="cat.code"></code>
+                                                <h4 class="font-bold text-slate-800" x-text="cat.label_short"></h4>
+                                                <template x-if="!cat.is_active">
+                                                    <span class="text-[9px] font-bold px-2 py-1 bg-slate-200 text-slate-600 rounded uppercase">Archivée</span>
+                                                </template>
+                                            </div>
+                                            <p class="text-sm text-slate-500 mt-1" x-text="cat.label_long"></p>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded" x-text="'Ordre: ' + cat.display_order"></span>
+                                    </div>
+                                    <div class="flex items-center gap-2" x-data="{ confirming: false }">
+                                        <template x-if="!confirming">
+                                            <div class="flex gap-2">
+                                                <button @click="prepEdit('category', cat)" class="text-blue-500 hover:text-blue-700 p-2 transition" :disabled="!cat.is_active">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </button>
+                                                <button @click="confirming = true" class="text-slate-200 hover:text-red-500 p-2 transition" :disabled="!cat.is_active">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="confirming">
+                                            <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl shadow-inner">
+                                                <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Archiver ?</span>
+                                                
+                                                <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                    <input type="hidden" name="action" value="delete_category">
+                                                    <input type="hidden" name="code" :value="cat.code">
+                                                    
+                                                    <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm">
+                                                        OUI
+                                                    </button>
+                                                </form>
+
+                                                <button @click="confirming = false" class="text-slate-400 text-[10px] font-bold hover:text-slate-600 px-2 uppercase">
+                                                    NON
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <button @click="prepEdit('category', {code:'', label_short:'', label_long:'', display_order: 0, color_hex: '#3b82f6', icon_name: 'briefcase', is_active: true})" class="w-full border-2 border-dashed border-slate-200 py-4 rounded-xl text-slate-400 font-bold hover:text-blue-600 transition">+ Ajouter Catégorie</button>
                     </div>
                 </div>
             </div>
@@ -1203,13 +1319,13 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
     <div x-show="editItem && editItem.type" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4" style="display: none;">
         <div class="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-black uppercase tracking-tighter" x-text="editItem ? (editItem.id ? 'Modifier ' + editItem.type : 'Ajouter ' + editItem.type) : ''"></h3>
+                <h3 class="text-2xl font-black uppercase tracking-tighter" x-text="editItem ? ((editItem.type === 'category' ? editItem.code : editItem.id) ? 'Modifier ' + editItem.type : 'Ajouter ' + editItem.type) : ''"></h3>
                 <button type="button" @click="editItem = {}" class="text-slate-300 hover:text-slate-600 text-2xl font-bold">&times;</button>
             </div>
 
             <form method="POST" class="space-y-4">
-                <input type="hidden" name="action" :value="editItem ? (editItem.id ? 'update_' + editItem.type : 'add_' + editItem.type) : ''">
-                <input type="hidden" name="id" :value="editItem ? editItem.id : ''">
+                <input type="hidden" name="action" :value="editItem ? (editItem.type === 'category' ? (editItem.code ? 'update_' + editItem.type : 'add_' + editItem.type) : (editItem.id ? 'update_' + editItem.type : 'add_' + editItem.type)) : ''">
+                <input type="hidden" name="id" :value="editItem ? (editItem.type === 'category' ? '' : editItem.id) : ''">
 
                 <!-- Expérience -->
                 <div x-show="editItem && editItem.type === 'exp'" class="space-y-4">
@@ -1244,6 +1360,54 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                 <div x-show="editItem && editItem.type === 'lang'" class="space-y-4">
                     <input type="text" name="label" x-model="editItem.label" placeholder="Langue (ex: Français)" class="border p-3 rounded-xl w-full">
                     <input type="text" name="level" x-model="editItem.level" placeholder="Niveau (ex: Natif)" class="border p-3 rounded-xl w-full">
+                </div>
+
+                <!-- Catégorie -->
+                <div x-show="editItem && editItem.type === 'category'" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-slate-400 mb-2">Code Unique</label>
+                            <input type="text" name="code" x-model="editItem.code" placeholder="Ex: ops, tech, management" 
+                                :readonly="!!editItem.id" 
+                                :class="!!editItem.id ? 'bg-slate-100 cursor-not-allowed' : ''"
+                                class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                            <p x-show="!!editItem.id" class="text-[9px] text-slate-400 mt-1 italic">Le code ne peut pas être modifié</p>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-slate-400 mb-2">Ordre d'affichage</label>
+                            <input type="number" name="display_order" x-model.number="editItem.display_order" placeholder="0" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+                    <input type="text" name="label_short" x-model="editItem.label_short" placeholder="Label court (ex: Opérations)" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                    <input type="text" name="label_long" x-model="editItem.label_long" placeholder="Label long (ex: Excellence Opérationnelle)" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-slate-400 mb-2">Couleur (hex)</label>
+                            <div class="flex gap-3">
+                                <input type="color" name="color_hex" x-model="editItem.color_hex" class="border p-2 rounded-xl w-16 h-11 cursor-pointer focus:border-blue-500 outline-none">
+                                <input type="text" x-model="editItem.color_hex" placeholder="#3b82f6" class="border p-3 rounded-xl flex-1 focus:border-blue-500 outline-none font-mono text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-slate-400 mb-2">Icône FontAwesome</label>
+                            <input type="text" name="icon_name" x-model="editItem.icon_name" placeholder="Ex: briefcase, cog, microchip" class="border p-3 rounded-xl w-full focus:border-blue-500 outline-none">
+                            <p class="text-[9px] text-slate-400 mt-1">Sans le prefix 'fa-'</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-[10px] font-black uppercase text-slate-400 mb-3">Aperçu</p>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center justify-center w-12 h-12 rounded-lg" :style="'background-color: ' + editItem.color_hex + '20; color: ' + editItem.color_hex">
+                                <i :class="'fa-solid fa-' + editItem.icon_name + ' text-xl'"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800" x-text="editItem.label_short"></p>
+                                <p class="text-xs text-slate-500" x-text="editItem.label_long"></p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Application -->
@@ -1300,7 +1464,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
 
                 <div class="mt-8 border-t pt-6">
                     <div class="grid grid-cols-2 gap-4">
-                        <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-full font-bold shadow-lg hover:bg-blue-700 transition" x-text="editItem ? (editItem.id ? 'Appliquer les modifications' : 'Créer') : ''"></button>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-full font-bold shadow-lg hover:bg-blue-700 transition" x-text="editItem ? ((editItem.type === 'category' ? editItem.code : editItem.id) ? 'Appliquer les modifications' : 'Créer') : ''"></button>
                         <button type="button" @click="editItem = {}" class="w-full bg-blue-600 text-white py-4 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">Annuler</button>
                     </div>
                 </div>
