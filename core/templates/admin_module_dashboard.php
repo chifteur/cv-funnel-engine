@@ -631,6 +631,8 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                             'bg-slate-100 text-slate-700': app.status === 'sent'
                                         }"
                                         x-text="app.status.toUpperCase()"></span>
+                                        
+                                    <span class="text-xs font-bold text-slate-400 capitalize" x-text="new Date(app.created_at.replace(' ', 'T')).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })"></span>
                                 </div>
                                 <div class="flex items-center gap-2 mb-1">
                                     <p class="text-slate-600 text-sm font-bold" x-text="app.job_title"></p>
