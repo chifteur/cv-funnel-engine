@@ -461,6 +461,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                 draggedExpId: null,
                 allExps: <?= json_encode($cv_exps) ?>,
                 allApps: <?= json_encode($apps) ?>,
+                hideRejected: true,
                 allLangs: <?= json_encode($cv_langs) ?>,
                 allDocs: <?= json_encode($allDocs) ?>,
                 allCategories: <?= json_encode($allCategories) ?>,
@@ -613,13 +614,27 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
             </div>
 
             <div x-show="tab === 'apps'" class="space-y-6">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-3xl font-black uppercase">Postulations</h2>
-                    <button @click="prepEdit('app')" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">+ Nouvelle Candidature</button>
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <h2 class="text-3xl font-black uppercase tracking-tighter">Postulations</h2>
+                    
+                    <div class="flex items-center gap-6">
+                        <label class="flex items-center cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" x-model="hideRejected" class="sr-only">
+                                <div class="w-10 h-5 bg-slate-200 rounded-full shadow-inner transition-colors" :class="hideRejected ? 'bg-red-500' : 'bg-slate-200'"></div>
+                                <div class="absolute left-1 top-1 bg-white w-3 h-3 rounded-full shadow transition-transform" :class="hideRejected ? 'translate-x-5' : ''"></div>
+                            </div>
+                            <div class="ml-3 text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition" :class="hideRejected ? 'text-red-600' : ''">
+                                Masquer les refus
+                            </div>
+                        </label>
+
+                        <button @click="prepEdit('app')" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition text-sm">+ Nouvelle Candidature</button>
+                    </div>
                 </div>
                 <div class="grid gap-4">
-                    <template x-for="app in allApps" :key="app.id">
-                        <div class="bg-white p-6 rounded-xl border flex justify-between items-center shadow-sm hover:border-blue-300 transition">
+                    <template x-for="app in allApps.filter(a => !hideRejected || a.status !== 'rejected')" :key="app.id">
+                        <div class="bg-white p-6 rounded-xl border flex justify-between items-center shadow-sm hover:border-blue-300 transition" x-transition>
                             <div class="flex-1">
                                 <div class="flex items-center gap-3 mb-2">
                                     <h3 class="font-black text-lg" x-text="app.company_name"></h3>
