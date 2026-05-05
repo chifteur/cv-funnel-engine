@@ -330,6 +330,13 @@ if ($query_key && isset($available_queries[$query_key])) {
                                     <tr class="hover:bg-blue-50/50 transition-colors group data-row">
                                         <?php foreach ($row as $key => $value): ?>
                                             <td class="p-4 px-6 text-xs text-slate-600 border-r border-slate-50 last:border-0 font-mono">
+                                                <?php 
+                                                // Détection automatique et conversion des données binaires (ex: UUID)
+                                                // Vérifie la présence de caractères de contrôle non-imprimables (typiques des données binaires)
+                                                if (is_string($value) && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value)) {
+                                                    $value = '0x' . strtoupper(bin2hex($value));
+                                                }
+                                                ?>
                                                 <?php if ($key === 'event_type' || $key === 'status'): ?>
                                                     <span class="bg-slate-100 text-slate-800 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-slate-200">
                                                         <?= htmlspecialchars($value) ?>
