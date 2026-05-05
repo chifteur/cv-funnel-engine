@@ -1428,7 +1428,26 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                     <input type="url" name="job_url" x-model="editItem.job_url" placeholder="URL de l'offre (optionnel)" class="border p-3 rounded-xl w-full">
                     <textarea name="custom_pitch" x-model="editItem.custom_pitch" placeholder="Pitch personnalisé..." rows="4" class="border p-3 rounded-xl w-full text-sm"></textarea>
                     <div class="space-y-3">
-                        <textarea name="why_me" x-model="editItem.why_me" placeholder="Pourquoi moi ? (icône:Présentation personnelle)" rows="4" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
+                        <div>
+                            <textarea name="why_me" x-model="editItem.why_me" placeholder="Pourquoi moi ? (icône:Présentation personnelle)" rows="4" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
+                            
+                            <div x-show="editItem.why_me" x-transition class="mt-2 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                <div class="flex justify-between items-center mb-3">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aperçu du rendu</p>
+                                    <a href="https://fontawesome.com/search?ip=classic&ic=free-collection" target="_blank" class="text-[10px] text-blue-500 hover:text-blue-600 font-bold uppercase tracking-widest transition">
+                                        <i class="fa-solid fa-icons mr-1"></i> Bibliothèque FontAwesome
+                                    </a>
+                                </div>
+                               <ul class="space-y-2 text-sm font-medium leading-relaxed text-slate-700">
+                                    <template x-for="(line, index) in (editItem.why_me || '').split('\n').map(l => l.trim()).filter(l => l)" :key="index">
+                                        <li class="flex gap-3 items-start">
+                                            <i class="fa-solid text-blue-400 mt-1" :class="'fa-' + (line.includes(':') ? line.substring(0, line.indexOf(':')).trim() : 'check')"></i>
+                                            <span x-text="line.includes(':') ? line.substring(line.indexOf(':') + 1).trim() : line"></span>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
                         
                         <textarea name="strengths" x-model="editItem.strengths" placeholder="Mes forces et compétences clés..." rows="4" class="border p-3 rounded-xl w-full text-sm focus:border-blue-500 outline-none"></textarea>
                         
