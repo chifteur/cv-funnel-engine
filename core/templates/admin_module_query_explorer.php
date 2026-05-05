@@ -5,7 +5,7 @@
 
 $db = get_db_connection();
 $query_key = $_GET['sql_key'] ?? $_POST['query_key'] ?? null;
-$session_target = $_GET['session_id'] ?? null;
+$session_target = $_GET['session_id'] ?? $_POST['session_id'] ?? null;
 
 $results = [];
 $query_title = "SQL Explorer";
@@ -45,6 +45,12 @@ $available_queries = [
         'requires_param' => false,
         'param_label' => null,
     ],
+    'all_events_by_application' => [
+        'title' => 'Tous les Événements d\'une candidature',
+        'description' => 'Affiche tous les événements télémétrie d\'une candidature spécifique',
+        'requires_param' => 'session_id',
+        'param_label' => 'ID Application',
+    ],    
 ];
 
 // On exécute la requête si elle est sélectionnée
@@ -135,6 +141,22 @@ if ($query_key && isset($available_queries[$query_key])) {
                     ORDER BY te.created_at DESC
                 ");
                 $stmt->execute();
+                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+
+            case 'all_events_by_application':
+                if (!$session_target) {
+                    $error = "❌ Un ID d'application est requis pour cette requête.";
+                    break;
+                }
+                $params = ['app_id' => $session_target];
+                $stmt = $db->prepare("
+                    SELECT * 
+                    FROM telemetry_events te 
+                    JOIN telemetry_sessions ts ON te.session_id = ts.id 
+                    WHERE ts.app_id = ?
+                ");
+                $stmt->execute([$session_target]);
                 $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 break;
         }
