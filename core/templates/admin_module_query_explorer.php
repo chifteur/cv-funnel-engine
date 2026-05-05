@@ -174,10 +174,33 @@ if ($query_key && isset($available_queries[$query_key])) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
     <style>
-        /* Styles pour indiquer visuellement le tri */
+        /* Styles pour le tri */
         th.sortable:hover { cursor: pointer; background-color: #1e293b; }
         th.sort-asc::after { content: " \f0de"; font-family: "Font Awesome 6 Free"; font-weight: 900; opacity: 0.8; margin-left: 4px; }
         th.sort-desc::after { content: " \f0dd"; font-family: "Font Awesome 6 Free"; font-weight: 900; opacity: 0.8; margin-left: 4px; }
+        
+        /* NOUVEAU : Styles pour le Redimensionnement et le Drag&Drop */
+        th { position: relative; }
+        .resizer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            z-index: 10;
+        }
+        .resizer:hover, .resizer.resizing {
+            background-color: #10b981; /* emerald-500 */
+        }
+        .dragging {
+            opacity: 0.5;
+            background-color: #334155 !important;
+        }
+        .drag-over {
+            border-left: 3px solid #10b981 !important;
+        }
     </style>
 </head>
 <body class="bg-slate-50 p-8 font-sans text-slate-900">
@@ -197,7 +220,6 @@ if ($query_key && isset($available_queries[$query_key])) {
             </button>
         </header>
 
-        <!-- Section Sélection de la Requête -->
         <div class="bg-white border border-slate-200 rounded-3xl shadow-lg p-6 mb-6">
             <form method="POST" class="space-y-4">
                 <div class="grid grid-cols-1 gap-4">
@@ -236,7 +258,6 @@ if ($query_key && isset($available_queries[$query_key])) {
             </form>
         </div>
 
-        <!-- Info Query Courante -->
         <?php if ($query_key && isset($available_queries[$query_key])): ?>
             <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6">
                 <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">
@@ -256,7 +277,6 @@ if ($query_key && isset($available_queries[$query_key])) {
             </div>
         <?php endif; ?>
 
-        <!-- Messages d'Erreur -->
         <?php if (!empty($error)): ?>
             <div class="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
                 <p class="text-sm text-red-900 font-bold">
@@ -265,40 +285,31 @@ if ($query_key && isset($available_queries[$query_key])) {
             </div>
         <?php endif; ?>
 
-        <!-- Résultats -->
         <?php if ($query_key && isset($available_queries[$query_key])): ?>
             <div class="bg-white border border-slate-200 rounded-3xl shadow-xl overflow-visible">
                 
-                <!-- HEADER AVEC OUTILS JS -->
-                <div class="bg-slate-900 text-white p-4 px-6 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div class="bg-slate-900 text-white p-4 px-6 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-t-3xl">
                     <p class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span id="rowCount"><?= count($results) ?></span> Ligne<?= count($results) > 1 ? 's' : '' ?>
                     </p>
                     
                     <?php if (!empty($results)): ?>
-                    <!-- BARRE D'OUTILS JS (Affichée uniquement si on a des résultats) -->
                     <div class="flex flex-wrap gap-3 w-full md:w-auto">
-                        <!-- Barre de recherche -->
                         <div class="relative flex-grow md:flex-grow-0">
                             <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs"></i>
                             <input type="text" id="jsSearchInput" placeholder="Filtrer..." class="w-full md:w-48 pl-8 pr-3 py-1.5 bg-slate-800 border border-slate-700 text-white text-xs rounded-lg focus:outline-none focus:border-emerald-500 transition-colors">
                         </div>
 
-                        <!-- Menu déroulant Colonnes -->
                         <div class="relative group">
                             <button type="button" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center h-full">
                                 <i class="fa-solid fa-eye mr-2"></i> Colonnes
                             </button>
-                            <!-- Dropdown -->
                             <div class="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl hidden group-hover:block z-20 overflow-hidden">
-                                <div class="p-2 space-y-1" id="jsColumnToggles">
-                                    <!-- Les checkboxes sont générées par JS ici -->
-                                </div>
+                                <div class="p-2 space-y-1" id="jsColumnToggles"></div>
                             </div>
                         </div>
 
-                        <!-- Bouton Export CSV -->
                         <button id="jsExportCsvBtn" type="button" class="bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center h-full">
                             <i class="fa-solid fa-download mr-2"></i> CSV
                         </button>
@@ -313,7 +324,7 @@ if ($query_key && isset($available_queries[$query_key])) {
                     </div>
                 <?php elseif (!empty($results)): ?>
                     <div class="overflow-x-auto relative">
-                        <table id="jsDataTable" class="w-full text-left border-collapse">
+                        <table id="jsDataTable" class="w-full text-left border-collapse" style="table-layout: auto;">
                             <thead>
                                 <tr class="bg-slate-900 text-white">
                                     <?php 
@@ -332,7 +343,6 @@ if ($query_key && isset($available_queries[$query_key])) {
                                             <td class="p-4 px-6 text-xs text-slate-600 border-r border-slate-50 last:border-0 font-mono">
                                                 <?php 
                                                 // Détection automatique et conversion des données binaires (ex: UUID)
-                                                // Vérifie la présence de caractères de contrôle non-imprimables (typiques des données binaires)
                                                 if (is_string($value) && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value)) {
                                                     $value = '0x' . strtoupper(bin2hex($value));
                                                 }
@@ -366,11 +376,10 @@ if ($query_key && isset($available_queries[$query_key])) {
         </p>
     </div>
 
-    <!-- SCRIPT JAVASCRIPT : Gestion dynamique du tableau (Tri, Filtre, Colonnes, Export) -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const table = document.getElementById('jsDataTable');
-            if (!table) return; // Pas de données à traiter
+            if (!table) return;
 
             const searchInput = document.getElementById('jsSearchInput');
             const exportBtn = document.getElementById('jsExportCsvBtn');
@@ -378,7 +387,7 @@ if ($query_key && isset($available_queries[$query_key])) {
             const rowCountEl = document.getElementById('rowCount');
             
             const tbody = table.querySelector('tbody');
-            const headers = Array.from(table.querySelectorAll('th'));
+            const initialHeaders = Array.from(table.querySelectorAll('th'));
             const rows = Array.from(tbody.querySelectorAll('tr.data-row'));
 
             // 1. RECHERCHE GLOBALE (FILTRE)
@@ -387,7 +396,6 @@ if ($query_key && isset($available_queries[$query_key])) {
                 let visibleCount = 0;
 
                 rows.forEach(row => {
-                    // On cherche uniquement dans les colonnes visibles
                     const visibleText = Array.from(row.children)
                         .filter(td => td.style.display !== 'none')
                         .map(td => td.textContent.toLowerCase())
@@ -405,10 +413,9 @@ if ($query_key && isset($available_queries[$query_key])) {
             });
 
             // 2. MASQUER/AFFICHER LES COLONNES
-            headers.forEach((th, index) => {
+            initialHeaders.forEach((th) => {
                 const colName = th.textContent.trim();
                 
-                // Créer le label et la checkbox pour le menu
                 const label = document.createElement('label');
                 label.className = 'flex items-center gap-2 px-2 py-1.5 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 rounded';
                 
@@ -425,53 +432,52 @@ if ($query_key && isset($available_queries[$query_key])) {
                 label.appendChild(span);
                 columnTogglesContainer.appendChild(label);
 
-                // Écouter les changements
                 checkbox.addEventListener('change', function() {
                     const isVisible = checkbox.checked;
-                    
-                    // Cacher le header (th)
                     th.style.display = isVisible ? '' : 'none';
                     
-                    // Cacher la cellule correspondante dans chaque ligne (td)
+                    // On recalcule l'index dynamiquement au cas où la colonne a été déplacée par Drag&Drop
+                    const currentIndex = Array.from(th.parentNode.children).indexOf(th);
+                    
                     rows.forEach(row => {
-                        if (row.children[index]) {
-                            row.children[index].style.display = isVisible ? '' : 'none';
+                        if (row.children[currentIndex]) {
+                            row.children[currentIndex].style.display = isVisible ? '' : 'none';
                         }
                     });
                 });
             });
 
-            // 3. TRIER LES COLONNES (Au clic sur le header)
+            // 3. TRIER LES COLONNES
             let currentSortCol = -1;
             let currentSortAsc = true;
 
-            headers.forEach(th => {
-                th.addEventListener('click', function() {
-                    const colIndex = parseInt(th.getAttribute('data-index'));
+            initialHeaders.forEach(th => {
+                th.addEventListener('click', function(e) {
+                    // Ignorer le clic si l'utilisateur est en train de redimensionner
+                    if (e.target.classList.contains('resizer')) return;
+
+                    // Index dynamique pour supporter le Drag & Drop
+                    const colIndex = Array.from(th.parentNode.children).indexOf(th);
                     
-                    // Nettoyer les icônes de tri des autres colonnes
-                    headers.forEach(h => {
+                    const currentHeaders = Array.from(table.querySelectorAll('th'));
+                    currentHeaders.forEach(h => {
                         h.classList.remove('sort-asc', 'sort-desc');
                     });
 
-                    // Déterminer la direction
                     if (currentSortCol === colIndex) {
-                        currentSortAsc = !currentSortAsc; // Inverser si déjà cliqué
+                        currentSortAsc = !currentSortAsc;
                     } else {
-                        currentSortAsc = true; // Par défaut ASC pour un nouveau clic
+                        currentSortAsc = true;
                         currentSortCol = colIndex;
                     }
 
-                    // Ajouter la classe visuelle (cf. styles CSS en haut)
                     th.classList.add(currentSortAsc ? 'sort-asc' : 'sort-desc');
 
-                    // Récupérer et trier les lignes
                     const visibleRows = Array.from(tbody.querySelectorAll('tr.data-row'));
                     visibleRows.sort((trA, trB) => {
                         const tdA = trA.children[colIndex].textContent.trim();
                         const tdB = trB.children[colIndex].textContent.trim();
                         
-                        // Tester si c'est un nombre pour un tri numérique
                         const numA = parseFloat(tdA);
                         const numB = parseFloat(tdB);
                         
@@ -485,7 +491,6 @@ if ($query_key && isset($available_queries[$query_key])) {
                         return currentSortAsc ? comparison : -comparison;
                     });
 
-                    // Ré-injecter les lignes triées dans le tbody
                     visibleRows.forEach(row => tbody.appendChild(row));
                 });
             });
@@ -493,17 +498,16 @@ if ($query_key && isset($available_queries[$query_key])) {
             // 4. EXPORT CSV
             exportBtn.addEventListener('click', function() {
                 let csvContent = [];
-                
-                // Échapper pour CSV
                 const escapeCsv = (str) => '"' + str.replace(/"/g, '""') + '"';
 
-                // Ligne d'en-tête (seulement les colonnes visibles)
-                const headerRow = headers
+                // Utilisation des headers actuels (après un potentiel Drag & Drop)
+                const currentHeaders = Array.from(table.querySelectorAll('th'));
+                
+                const headerRow = currentHeaders
                     .filter(th => th.style.display !== 'none')
                     .map(th => escapeCsv(th.textContent.trim()));
                 csvContent.push(headerRow.join(','));
 
-                // Lignes de données (seulement les lignes et colonnes visibles)
                 rows.forEach(row => {
                     if (row.style.display !== 'none') {
                         const rowData = Array.from(row.children)
@@ -513,22 +517,126 @@ if ($query_key && isset($available_queries[$query_key])) {
                     }
                 });
 
-                // Créer le fichier avec encodage UTF-8 (BOM pour compatibilité Excel)
                 const csvString = "\uFEFF" + csvContent.join("\n");
                 const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-                
-                // Déclencher le téléchargement
                 const link = document.createElement("a");
                 const url = URL.createObjectURL(blob);
                 link.setAttribute("href", url);
                 
-                // Nom de fichier avec date du jour
                 const dateIso = new Date().toISOString().slice(0,10);
                 link.setAttribute("download", `export_requete_${dateIso}.csv`);
                 
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+            });
+
+            // 5. REDIMENSIONNEMENT DES COLONNES (RESIZER)
+            initialHeaders.forEach(th => {
+                const resizer = document.createElement('div');
+                resizer.classList.add('resizer');
+                th.appendChild(resizer);
+
+                let x = 0;
+                let w = 0;
+
+                const mouseDownHandler = function(e) {
+                    x = e.clientX;
+                    const styles = window.getComputedStyle(th);
+                    w = parseInt(styles.width, 10);
+                    
+                    document.addEventListener('mousemove', mouseMoveHandler);
+                    document.addEventListener('mouseup', mouseUpHandler);
+                    resizer.classList.add('resizing');
+                    e.stopPropagation(); // Empêche de déclencher le Tri ou le Drag&Drop
+                };
+
+                const mouseMoveHandler = function(e) {
+                    const dx = e.clientX - x;
+                    th.style.width = `${w + dx}px`;
+                    th.style.minWidth = `${w + dx}px`;
+                };
+
+                const mouseUpHandler = function() {
+                    resizer.classList.remove('resizing');
+                    document.removeEventListener('mousemove', mouseMoveHandler);
+                    document.removeEventListener('mouseup', mouseUpHandler);
+                };
+
+                resizer.addEventListener('mousedown', mouseDownHandler);
+            });
+
+            // 6. DÉPLACEMENT DES COLONNES (DRAG & DROP)
+            let draggedTh = null;
+
+            initialHeaders.forEach(th => {
+                th.setAttribute('draggable', 'true');
+
+                th.addEventListener('dragstart', function(e) {
+                    // Si on clique sur le resizer, on ne lance pas le Drag&Drop
+                    if (e.target.classList.contains('resizer')) {
+                        e.preventDefault();
+                        return;
+                    }
+                    draggedTh = th;
+                    th.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', ''); // Requis par Firefox
+                });
+
+                th.addEventListener('dragover', function(e) {
+                    e.preventDefault(); // Autorise le drop
+                    e.dataTransfer.dropEffect = 'move';
+                    if (th !== draggedTh) {
+                        th.classList.add('drag-over');
+                    }
+                });
+
+                th.addEventListener('dragleave', function() {
+                    th.classList.remove('drag-over');
+                });
+
+                th.addEventListener('dragend', function() {
+                    th.classList.remove('dragging');
+                    const allThs = Array.from(table.querySelectorAll('th'));
+                    allThs.forEach(h => h.classList.remove('drag-over'));
+                });
+
+                th.addEventListener('drop', function(e) {
+                    e.stopPropagation();
+                    th.classList.remove('drag-over');
+                    
+                    if (draggedTh && draggedTh !== th) {
+                        const allThs = Array.from(th.parentNode.children);
+                        const sourceIndex = allThs.indexOf(draggedTh);
+                        const targetIndex = allThs.indexOf(th);
+
+                        // Déplacer l'en-tête (TH)
+                        if (sourceIndex < targetIndex) {
+                            th.parentNode.insertBefore(draggedTh, th.nextSibling);
+                        } else {
+                            th.parentNode.insertBefore(draggedTh, th);
+                        }
+
+                        // Déplacer toutes les cellules correspondantes (TD)
+                        Array.from(tbody.querySelectorAll('tr.data-row')).forEach(row => {
+                            const tds = Array.from(row.children);
+                            const sourceTd = tds[sourceIndex];
+                            const targetTd = tds[targetIndex];
+                            
+                            if (sourceIndex < targetIndex) {
+                                row.insertBefore(sourceTd, targetTd.nextSibling);
+                            } else {
+                                row.insertBefore(sourceTd, targetTd);
+                            }
+                        });
+                        
+                        // Réinitialiser le tri après un mouvement pour éviter la confusion
+                        currentSortCol = -1;
+                        Array.from(table.querySelectorAll('th')).forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                    }
+                    return false;
+                });
             });
         });
     </script>
