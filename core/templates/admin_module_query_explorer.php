@@ -173,6 +173,12 @@ if ($query_key && isset($available_queries[$query_key])) {
     <title><?= $query_title ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <style>
+        /* Styles pour indiquer visuellement le tri */
+        th.sortable:hover { cursor: pointer; background-color: #1e293b; }
+        th.sort-asc::after { content: " \f0de"; font-family: "Font Awesome 6 Free"; font-weight: 900; opacity: 0.8; margin-left: 4px; }
+        th.sort-desc::after { content: " \f0dd"; font-family: "Font Awesome 6 Free"; font-weight: 900; opacity: 0.8; margin-left: 4px; }
+    </style>
 </head>
 <body class="bg-slate-50 p-8 font-sans text-slate-900">
 
@@ -261,12 +267,43 @@ if ($query_key && isset($available_queries[$query_key])) {
 
         <!-- Résultats -->
         <?php if ($query_key && isset($available_queries[$query_key])): ?>
-            <div class="bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden">
-                <div class="bg-slate-900 text-white p-4 px-6 border-b border-slate-800">
-                    <p class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+            <div class="bg-white border border-slate-200 rounded-3xl shadow-xl overflow-visible">
+                
+                <!-- HEADER AVEC OUTILS JS -->
+                <div class="bg-slate-900 text-white p-4 px-6 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <?= count($results) ?> Ligne<?= count($results) > 1 ? 's' : '' ?>
+                        <span id="rowCount"><?= count($results) ?></span> Ligne<?= count($results) > 1 ? 's' : '' ?>
                     </p>
+                    
+                    <?php if (!empty($results)): ?>
+                    <!-- BARRE D'OUTILS JS (Affichée uniquement si on a des résultats) -->
+                    <div class="flex flex-wrap gap-3 w-full md:w-auto">
+                        <!-- Barre de recherche -->
+                        <div class="relative flex-grow md:flex-grow-0">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs"></i>
+                            <input type="text" id="jsSearchInput" placeholder="Filtrer..." class="w-full md:w-48 pl-8 pr-3 py-1.5 bg-slate-800 border border-slate-700 text-white text-xs rounded-lg focus:outline-none focus:border-emerald-500 transition-colors">
+                        </div>
+
+                        <!-- Menu déroulant Colonnes -->
+                        <div class="relative group">
+                            <button type="button" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center h-full">
+                                <i class="fa-solid fa-eye mr-2"></i> Colonnes
+                            </button>
+                            <!-- Dropdown -->
+                            <div class="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl hidden group-hover:block z-20 overflow-hidden">
+                                <div class="p-2 space-y-1" id="jsColumnToggles">
+                                    <!-- Les checkboxes sont générées par JS ici -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bouton Export CSV -->
+                        <button id="jsExportCsvBtn" type="button" class="bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center h-full">
+                            <i class="fa-solid fa-download mr-2"></i> CSV
+                        </button>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
                 <?php if (empty($results) && empty($error)): ?>
@@ -275,14 +312,14 @@ if ($query_key && isset($available_queries[$query_key])) {
                         <p class="text-slate-400 font-bold italic text-sm">Aucun résultat pour cette requête.</p>
                     </div>
                 <?php elseif (!empty($results)): ?>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                    <div class="overflow-x-auto relative">
+                        <table id="jsDataTable" class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-900 text-white">
                                     <?php 
                                     $columns = array_keys($results[0]);
-                                    foreach ($columns as $col): ?>
-                                        <th class="p-4 px-6 text-[10px] font-black uppercase tracking-widest border-r border-slate-800 last:border-0">
+                                    foreach ($columns as $index => $col): ?>
+                                        <th data-index="<?= $index ?>" class="sortable p-4 px-6 text-[10px] font-black uppercase tracking-widest border-r border-slate-800 last:border-0 select-none transition-colors">
                                             <?= str_replace('_', ' ', $col) ?>
                                         </th>
                                     <?php endforeach; ?>
@@ -290,7 +327,7 @@ if ($query_key && isset($available_queries[$query_key])) {
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <?php foreach ($results as $row): ?>
-                                    <tr class="hover:bg-blue-50/50 transition-colors group">
+                                    <tr class="hover:bg-blue-50/50 transition-colors group data-row">
                                         <?php foreach ($row as $key => $value): ?>
                                             <td class="p-4 px-6 text-xs text-slate-600 border-r border-slate-50 last:border-0 font-mono">
                                                 <?php if ($key === 'event_type' || $key === 'status'): ?>
@@ -322,5 +359,171 @@ if ($query_key && isset($available_queries[$query_key])) {
         </p>
     </div>
 
+    <!-- SCRIPT JAVASCRIPT : Gestion dynamique du tableau (Tri, Filtre, Colonnes, Export) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const table = document.getElementById('jsDataTable');
+            if (!table) return; // Pas de données à traiter
+
+            const searchInput = document.getElementById('jsSearchInput');
+            const exportBtn = document.getElementById('jsExportCsvBtn');
+            const columnTogglesContainer = document.getElementById('jsColumnToggles');
+            const rowCountEl = document.getElementById('rowCount');
+            
+            const tbody = table.querySelector('tbody');
+            const headers = Array.from(table.querySelectorAll('th'));
+            const rows = Array.from(tbody.querySelectorAll('tr.data-row'));
+
+            // 1. RECHERCHE GLOBALE (FILTRE)
+            searchInput.addEventListener('input', function(e) {
+                const term = e.target.value.toLowerCase();
+                let visibleCount = 0;
+
+                rows.forEach(row => {
+                    // On cherche uniquement dans les colonnes visibles
+                    const visibleText = Array.from(row.children)
+                        .filter(td => td.style.display !== 'none')
+                        .map(td => td.textContent.toLowerCase())
+                        .join(' ');
+                        
+                    if (visibleText.includes(term)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                rowCountEl.textContent = visibleCount;
+            });
+
+            // 2. MASQUER/AFFICHER LES COLONNES
+            headers.forEach((th, index) => {
+                const colName = th.textContent.trim();
+                
+                // Créer le label et la checkbox pour le menu
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 px-2 py-1.5 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 rounded';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = true;
+                checkbox.className = 'accent-emerald-500 rounded';
+                
+                const span = document.createElement('span');
+                span.className = 'font-bold uppercase tracking-wider text-[10px] truncate';
+                span.textContent = colName;
+
+                label.appendChild(checkbox);
+                label.appendChild(span);
+                columnTogglesContainer.appendChild(label);
+
+                // Écouter les changements
+                checkbox.addEventListener('change', function() {
+                    const isVisible = checkbox.checked;
+                    
+                    // Cacher le header (th)
+                    th.style.display = isVisible ? '' : 'none';
+                    
+                    // Cacher la cellule correspondante dans chaque ligne (td)
+                    rows.forEach(row => {
+                        if (row.children[index]) {
+                            row.children[index].style.display = isVisible ? '' : 'none';
+                        }
+                    });
+                });
+            });
+
+            // 3. TRIER LES COLONNES (Au clic sur le header)
+            let currentSortCol = -1;
+            let currentSortAsc = true;
+
+            headers.forEach(th => {
+                th.addEventListener('click', function() {
+                    const colIndex = parseInt(th.getAttribute('data-index'));
+                    
+                    // Nettoyer les icônes de tri des autres colonnes
+                    headers.forEach(h => {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    });
+
+                    // Déterminer la direction
+                    if (currentSortCol === colIndex) {
+                        currentSortAsc = !currentSortAsc; // Inverser si déjà cliqué
+                    } else {
+                        currentSortAsc = true; // Par défaut ASC pour un nouveau clic
+                        currentSortCol = colIndex;
+                    }
+
+                    // Ajouter la classe visuelle (cf. styles CSS en haut)
+                    th.classList.add(currentSortAsc ? 'sort-asc' : 'sort-desc');
+
+                    // Récupérer et trier les lignes
+                    const visibleRows = Array.from(tbody.querySelectorAll('tr.data-row'));
+                    visibleRows.sort((trA, trB) => {
+                        const tdA = trA.children[colIndex].textContent.trim();
+                        const tdB = trB.children[colIndex].textContent.trim();
+                        
+                        // Tester si c'est un nombre pour un tri numérique
+                        const numA = parseFloat(tdA);
+                        const numB = parseFloat(tdB);
+                        
+                        let comparison = 0;
+                        if (!isNaN(numA) && !isNaN(numB)) {
+                            comparison = numA - numB;
+                        } else {
+                            comparison = tdA.localeCompare(tdB);
+                        }
+
+                        return currentSortAsc ? comparison : -comparison;
+                    });
+
+                    // Ré-injecter les lignes triées dans le tbody
+                    visibleRows.forEach(row => tbody.appendChild(row));
+                });
+            });
+
+            // 4. EXPORT CSV
+            exportBtn.addEventListener('click', function() {
+                let csvContent = [];
+                
+                // Échapper pour CSV
+                const escapeCsv = (str) => '"' + str.replace(/"/g, '""') + '"';
+
+                // Ligne d'en-tête (seulement les colonnes visibles)
+                const headerRow = headers
+                    .filter(th => th.style.display !== 'none')
+                    .map(th => escapeCsv(th.textContent.trim()));
+                csvContent.push(headerRow.join(','));
+
+                // Lignes de données (seulement les lignes et colonnes visibles)
+                rows.forEach(row => {
+                    if (row.style.display !== 'none') {
+                        const rowData = Array.from(row.children)
+                            .filter(td => td.style.display !== 'none')
+                            .map(td => escapeCsv(td.textContent.trim()));
+                        csvContent.push(rowData.join(','));
+                    }
+                });
+
+                // Créer le fichier avec encodage UTF-8 (BOM pour compatibilité Excel)
+                const csvString = "\uFEFF" + csvContent.join("\n");
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                
+                // Déclencher le téléchargement
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                
+                // Nom de fichier avec date du jour
+                const dateIso = new Date().toISOString().slice(0,10);
+                link.setAttribute("download", `export_requete_${dateIso}.csv`);
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        });
+    </script>
 </body>
 </html>
