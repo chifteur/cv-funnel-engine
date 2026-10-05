@@ -571,6 +571,14 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                     <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
                 </a>
 
+                <a href="?key=<?= htmlspecialchars((string)($_GET['key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>&module=telegram_settings" target="_blank"
+                class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-brands fa-telegram w-5 text-sky-400"></i> Telegram
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
+                </a>
+
                 <a href="?key=<?= $key ?>&module=logs" target="_blank" 
                 class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
                     <div class="flex items-center gap-3">
