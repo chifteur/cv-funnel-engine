@@ -180,10 +180,15 @@ function send_admin_recovery_email(string $recipient, string $subject, string $t
         throw new RuntimeException('Le service email de récupération n’est pas configuré.');
     }
 
+    $mailerPath = rtrim($mailerPath, '/');
+    if (!is_file($mailerPath . '/Exception.php') && is_file($mailerPath . '/src/Exception.php')) {
+        $mailerPath .= '/src';
+    }
+
     $sourceFiles = [
-        rtrim($mailerPath, '/') . '/Exception.php',
-        rtrim($mailerPath, '/') . '/PHPMailer.php',
-        rtrim($mailerPath, '/') . '/SMTP.php',
+        $mailerPath . '/Exception.php',
+        $mailerPath . '/PHPMailer.php',
+        $mailerPath . '/SMTP.php',
     ];
     foreach ($sourceFiles as $sourceFile) {
         if (!is_file($sourceFile) || !is_readable($sourceFile)) {
