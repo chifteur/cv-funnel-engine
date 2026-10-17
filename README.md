@@ -70,6 +70,7 @@ cv-funnel-engine/
    ```bash
    cp core/config.exemple.php core/config.php
    ```
+   La clé d’administration est demandée par le formulaire de provisioning ; elle n’est pas à ajouter dans `config.php`.
 
 3. **Éditer `core/config.php`** avec vos paramètres :
    ```php
@@ -77,7 +78,6 @@ cv-funnel-engine/
    define('DB_NAME', 'nom-de-la-bdd');
    define('DB_USER', 'utilisateur-mysql');
    define('DB_PASS', 'mot-de-passe');
-   define('ADMIN_ACCESS_KEY', 'votre-clé-secrète');
    define('SITE_URL', 'https://votre-domaine.ch');
    ```
 
@@ -101,8 +101,12 @@ cv-funnel-engine/
 
 Rendez-vous sur :
 ```
-https://votre-domaine.ch/manage?key=VOTRE_CLÉ_SECRÈTE&module=dashboard
+https://votre-domaine.ch/manage
 ```
+
+La clé d’administration est définie pendant le provisioning, puis conservée uniquement sous forme de hash dans la table `settings`. Elle est demandée sur la page de connexion et peut ensuite être modifiée depuis l’onglet **Sécurité** du tableau de bord. Elle n’est jamais enregistrée dans `config.php`.
+
+Pour une installation existante dont `config.php` contient encore `ADMIN_ACCESS_KEY`, la migration `1.0.2` transfère la clé vers `settings` uniquement si aucun hash n’y existe déjà, puis retire sa définition de `config.php`. Elle s’exécute via le moteur habituel (`php core/migrate.php`), notamment à la fin du workflow d’orchestration lorsque les tâches DB sont activées.
 
 ### Modules disponibles
 
@@ -217,7 +221,7 @@ Logger::error($msg, $context)    // Log d'erreur
 
 ## 🔒 Sécurité
 
-- **Clé d'accès admin** : Toutes les routes `/manage` requièrent une clé secrète
+- **Clé d'accès admin** : conservée uniquement sous forme de hash dans `settings` ; la clé en clair n'est pas enregistrée dans `config.php`
 - **Gestion des erreurs** : Centralisée avec logging automatique
 - **Préparation des requêtes** : Utilisation de PDO avec requêtes préparées
 - **Session sécurisée** : UUID aléatoire par visiteur
@@ -239,7 +243,6 @@ Logger::error($msg, $context)    // Log d'erreur
 | `DB_USER` | string | Utilisateur MySQL |
 | `DB_PASS` | string | Mot de passe MySQL |
 | `DEBUG` | bool | Activer les logs DEBUG |
-| `ADMIN_ACCESS_KEY` | string | Clé d'accès admin |
 | `SITE_URL` | string | URL du site |
 | `PATH_STORAGE` | string | Chemin stockage documents |
 

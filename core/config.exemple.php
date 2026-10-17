@@ -14,7 +14,6 @@ define('DB_PASS', 'passwork');
 define('DEBUG', false);
 
 // Sécurité
-define('ADMIN_ACCESS_KEY', 'ma clef admin');
 define('VERSION_ACCESS_KEY', 'ma clef de version'); // Clé d'accès pour l'API de version (à utiliser dans public/api/version.php)
 
 // Chemins et URLs

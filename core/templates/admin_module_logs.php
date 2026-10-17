@@ -1,7 +1,7 @@
 <?php
 /**
  * Manganese OS - Module Détail des logs
- * Variables injectées : $key, $module
+ * Variable injectée : $module
  */
 
 $logFile = __DIR__ . '/../../logs/app.log';
@@ -15,7 +15,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'clear_logs') {
         Logger::info("Log file cleared by administrator");
     }
     // Redirection pour éviter le renvoi du formulaire au refresh
-    header("Location: ?key=$key&module=$module");
+    header("Location: ?module=$module");
     exit;
 }
 

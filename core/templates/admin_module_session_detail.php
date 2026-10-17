@@ -1,7 +1,7 @@
 <?php
 /**
  * Manganese OS - Module Détail de Session
- * Variables injectées : $id (UUID de la session), $key, $module
+ * Variables injectées : $id (UUID de la session), $module
  */
 
 $db = get_db_connection();
@@ -278,7 +278,7 @@ if ($current_group) {
                                         <?php $displayed = true; ?>
                                     <?php endif; ?>
 
-                                    <a href="?key=<?= $key ?>&module=session_detail&id=<?= $h['other_uuid'] ?>" target="_blank" 
+                                    <a href="?module=session_detail&id=<?= $h['other_uuid'] ?>" target="_blank"
                                     class="flex items-center justify-between p-3 bg-slate-800/30 hover:bg-slate-800 rounded-2xl border border-slate-800 transition group">
                                         <div class="text-[10px]">
                                             <p class="font-bold text-slate-400 group-hover:text-white"><?= date('d.m.Y à H:i', strtotime($h['started_at'])) ?></p>

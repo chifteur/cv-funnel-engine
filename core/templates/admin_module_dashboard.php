@@ -2,6 +2,7 @@
 /**
  * MANGANESE OS - DASHBOARD CENTRALISÉ
  * Gère TOUTES les actions POST et la structure globale
+ * @var string $csrfToken Injecté par le routeur après authentification
  */
 
 $db = get_db_connection();
@@ -15,6 +16,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $debug_action = $action;
 
     try {
+        if ($action === 'update_admin_access_key') {
+            $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+            $currentKey = $_POST['current_admin_key'] ?? '';
+            $newKey = $_POST['new_admin_key'] ?? '';
+            $confirmKey = $_POST['confirm_admin_key'] ?? '';
+            $storedKeyHash = get_admin_access_key_hash($db);
+            $validCsrf = is_string($submittedCsrfToken)
+                && isset($_SESSION['admin_csrf_token'])
+                && hash_equals($_SESSION['admin_csrf_token'], $submittedCsrfToken);
+            $validCurrentKey = $storedKeyHash !== null
+                && is_string($currentKey)
+                && password_verify($currentKey, $storedKeyHash);
+
+            if (!$validCsrf) {
+                $message = "❌ La demande a expiré. Recharge la page et réessaie.";
+            } elseif (!$validCurrentKey) {
+                $message = "❌ La clé actuelle est incorrecte.";
+            } elseif (!is_string($newKey) || strlen($newKey) < 12 || strlen($newKey) > 256) {
+                $message = "❌ La nouvelle clé doit contenir entre 12 et 256 caractères.";
+            } elseif (!is_string($confirmKey) || !hash_equals($newKey, $confirmKey)) {
+                $message = "❌ La confirmation ne correspond pas à la nouvelle clé.";
+            } else {
+                $newKeyHash = password_hash($newKey, PASSWORD_DEFAULT);
+                $stmt = $db->prepare(
+                    "INSERT INTO settings (setting_key, setting_value) VALUES ('admin_access_key_hash', ?)
+                     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+                );
+                $stmt->execute([$newKeyHash]);
+                $_SESSION['admin_key_fingerprint'] = $newKeyHash;
+                Logger::info("Administrator access key changed");
+                $message = "✅ Clé d’administration mise à jour.";
+            }
+        }
+
         // PROFIL MASTER
         if ($action === 'update_profile') {
             // Par défaut, on garde l'ancien chemin de la photo
@@ -558,12 +593,15 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                 <button @click="tab = 'stats'" :class="tab === 'stats' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
                     <i class="fa-solid fa-bolt w-5"></i> Télémétrie
                 </button>
+                <button @click="tab = 'security'" :class="tab === 'security' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3 font-bold">
+                    <i class="fa-solid fa-key w-5"></i> Sécurité
+                </button>
                 
                 <div class="pt-4 pb-2 border-t border-slate-800 mt-4">
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Système & Debug</p>
                 </div>
 
-                <a href="?key=<?= $key ?>&module=query_explorer" target="_blank" 
+                <a href="?module=query_explorer" target="_blank"
                 class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
                     <div class="flex items-center gap-3">
                         <i class="fa-solid fa-database w-5 text-emerald-400"></i> Query Explorer
@@ -571,7 +609,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                     <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
                 </a>
 
-                <a href="?key=<?= htmlspecialchars((string)($_GET['key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>&module=telegram_settings" target="_blank"
+                <a href="?module=telegram_settings" target="_blank"
                 class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
                     <div class="flex items-center gap-3">
                         <i class="fa-brands fa-telegram w-5 text-sky-400"></i> Telegram
@@ -579,7 +617,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                     <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
                 </a>
 
-                <a href="?key=<?= $key ?>&module=logs" target="_blank" 
+                <a href="?module=logs" target="_blank"
                 class="w-full text-slate-400 hover:bg-slate-800 hover:text-white p-3 rounded-lg transition flex items-center justify-between font-bold group">
                     <div class="flex items-center gap-3">
                         <i class="fa-solid fa-terminal w-5 text-blue-400"></i> Journal Logs
@@ -619,6 +657,36 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                 <button @click="toastMessage = ''" class="text-slate-300 hover:text-slate-500 transition-colors">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
+            </div>
+
+            <div x-show="tab === 'security'" class="mx-auto max-w-2xl space-y-6">
+                <div>
+                    <h2 class="text-3xl font-black">Sécurité</h2>
+                    <p class="mt-2 text-sm text-slate-500">Modifie la clé demandée lors de l’accès au management.</p>
+                </div>
+                <form method="POST" class="space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <input type="hidden" name="action" value="update_admin_access_key">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <div>
+                        <label for="current_admin_key" class="mb-2 block text-sm font-bold">Clé actuelle</label>
+                        <input id="current_admin_key" name="current_admin_key" type="password" autocomplete="current-password" required
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    </div>
+                    <div>
+                        <label for="new_admin_key" class="mb-2 block text-sm font-bold">Nouvelle clé</label>
+                        <input id="new_admin_key" name="new_admin_key" type="password" autocomplete="new-password" minlength="12" maxlength="256" required
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        <p class="mt-1 text-xs text-slate-500">Entre 12 et 256 caractères. La clé est enregistrée sous forme de hash.</p>
+                    </div>
+                    <div>
+                        <label for="confirm_admin_key" class="mb-2 block text-sm font-bold">Confirmer la nouvelle clé</label>
+                        <input id="confirm_admin_key" name="confirm_admin_key" type="password" autocomplete="new-password" minlength="12" maxlength="256" required
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    </div>
+                    <button type="submit" class="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800">
+                        Enregistrer la nouvelle clé
+                    </button>
+                </form>
             </div>
 
             <div x-show="tab === 'apps'" class="space-y-6">
@@ -681,7 +749,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                 <div class="flex items-center gap-2" x-data="{ confirming: false }">
                                     <template x-if="!confirming">
                                         <div class="flex gap-1 items-center">
-                                            <a :href="'?key=<?= $key ?>&module=crm&app_id=' + app.id" 
+                                            <a :href="'?module=crm&app_id=' + app.id"
                                                 target="_blank" 
                                                 class="text-emerald-600 hover:text-emerald-700 p-2 transition-colors"
                                                 title="Ouvrir le suivi CRM">
@@ -699,7 +767,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                         <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl">
                                             <span class="text-[9px] font-black text-red-600 uppercase px-2">Supprimer ?</span>
                                             
-                                            <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                            <form method="POST" action="?module=dashboard" style="display:inline">
                                                 <input type="hidden" name="action" value="delete_app">
                                                 <input type="hidden" name="id" :value="app.id">
                                                 <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm shadow-red-200">
@@ -819,7 +887,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                             <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl shadow-inner">
                                                 <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Supprimer ?</span>
                                                 
-                                                <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                <form method="POST" action="?module=dashboard" style="display:inline">
                                                     <input type="hidden" name="action" value="delete_exp">
                                                     <input type="hidden" name="id" :value="exp.id">
                                                     <input type="hidden" name="role" :value="exp.role">
@@ -909,7 +977,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                         <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl">
                                             <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Supprimer ?</span>
                                             
-                                            <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                            <form method="POST" action="?module=dashboard" style="display:inline">
                                                 <input type="hidden" name="action" value="delete_edu">
                                                 <input type="hidden" name="id" value="<?= $e['id'] ?>">
                                                 
@@ -968,7 +1036,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                             <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl shadow-inner">
                                                 <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Archiver ?</span>
                                                 
-                                                <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                <form method="POST" action="?module=dashboard" style="display:inline">
                                                     <input type="hidden" name="action" value="delete_category">
                                                     <input type="hidden" name="code" :value="cat.code">
                                                     
@@ -1108,7 +1176,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                     <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl shadow-inner">
                                         <span class="text-[9px] font-black text-red-600 uppercase px-2 tracking-tighter">Détruire ?</span>
                                         
-                                        <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                        <form method="POST" action="?module=dashboard" style="display:inline">
                                             <input type="hidden" name="action" value="delete_doc">
                                             <input type="hidden" name="id" :value="doc.id">
                                             
@@ -1210,7 +1278,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
 
                                 <div>
                                     <div>
-                                        <a href="?key=<?= $key ?>&module=session_detail&id=<?= $s['s_id_text'] ?>" target="_blank"
+                                        <a href="?module=session_detail&id=<?= $s['s_id_text'] ?>" target="_blank"
                                         class="flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-blue-600 px-4 py-3 rounded-xl transition font-bold text-xs uppercase">
                                             Analyse <i class="fa-solid fa-magnifying-glass-chart ml-1"></i>
                                         </a>
@@ -1227,7 +1295,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                             <div x-transition class="flex items-center gap-2 bg-red-50 border border-red-100 p-1 rounded-xl">
                                                 <span class="text-[9px] font-black text-red-600 uppercase px-2">Supprimer ?</span>
                                                 
-                                                <form method="POST" action="?key=<?= $key ?>" style="display:inline">
+                                                <form method="POST" action="?module=dashboard" style="display:inline">
                                                     <input type="hidden" name="action" value="delete_session">
                                                     <input type="hidden" name="id" value="<?= $s['s_id_text'] ?>">
                                                     <button type="submit" class="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition shadow-sm shadow-red-200">
@@ -1284,7 +1352,7 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                                 
                                 <div class="flex items-center gap-4">
                                     <span class="hidden group-hover:block text-[9px] font-bold text-amber-600 uppercase tracking-tighter">Candidature inexistante</span>
-                                    <a href="?key=<?= $key ?>&module=query_explorer&sql_key=orphan_events&session_id=<?= $s['s_id_text'] ?>" 
+                                    <a href="?module=query_explorer&sql_key=orphan_events&session_id=<?= $s['s_id_text'] ?>"
                                     target="_blank"
                                     class="text-[10px] font-black text-amber-600 hover:text-blue-600 uppercase tracking-widest transition flex items-center gap-2">
                                         Voir Événements <i class="fa-solid fa-magnifying-glass-chart text-[9px]"></i>

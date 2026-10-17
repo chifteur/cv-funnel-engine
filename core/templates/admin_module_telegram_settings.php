@@ -99,8 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$key = $key ?? ($_GET['key'] ?? '');
-$escapedKey = htmlspecialchars((string)$key, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -119,7 +117,7 @@ $escapedKey = htmlspecialchars((string)$key, ENT_QUOTES, 'UTF-8');
                 <h1 class="mt-2 text-3xl font-black">Notifications Telegram</h1>
                 <p class="mt-2 text-sm text-slate-600">Configure les identifiants utilisés par cette instance.</p>
             </div>
-            <a href="?key=<?= $escapedKey ?>" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">
+            <a href="?module=dashboard" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">
                 <i class="fa-solid fa-arrow-left mr-2"></i>Dashboard
             </a>
         </header>
@@ -147,7 +145,7 @@ $escapedKey = htmlspecialchars((string)$key, ENT_QUOTES, 'UTF-8');
                     </span>
                 </div>
 
-                <form method="POST" action="?key=<?= $escapedKey ?>&amp;module=telegram_settings" class="space-y-5">
+                <form method="POST" action="?module=telegram_settings" class="space-y-5">
                     <div>
                         <label for="tg_bot_token" class="mb-2 block text-sm font-bold">Token BotFather</label>
                         <input id="tg_bot_token" name="tg_bot_token" type="password" autocomplete="new-password" spellcheck="false"
@@ -174,7 +172,7 @@ $escapedKey = htmlspecialchars((string)$key, ENT_QUOTES, 'UTF-8');
                     </div>
                 </form>
 
-                <form method="POST" action="?key=<?= $escapedKey ?>&amp;module=telegram_settings" class="mt-4 border-t border-slate-100 pt-4"
+                <form method="POST" action="?module=telegram_settings" class="mt-4 border-t border-slate-100 pt-4"
                     onsubmit="return confirm('Effacer le token et le chat ID enregistrés pour cette instance ?')">
                     <input type="hidden" name="action" value="clear_telegram_settings">
                     <button type="submit" class="text-sm font-semibold text-red-700 hover:text-red-900">

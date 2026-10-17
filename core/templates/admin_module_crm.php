@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt = $db->prepare("UPDATE applications SET status = ? WHERE id = ?");
         $stmt->execute([$new_status, $app_id]);
         Logger::info("CRM: Status updated to '$new_status' for " . ($current_app['company_name'] ?? $app_id));
-        header("Location: ?key=$key&module=crm&app_id=$app_id");
+        header("Location: ?module=crm&app_id=$app_id");
         exit;
     }
 }
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
     Logger::info("CRM: New event for " . ($current_app['company_name'] ?? $app_id));
-    header("Location: ?key=$key&module=crm&app_id=$app_id");
+    header("Location: ?module=crm&app_id=$app_id");
     exit;
 }
 
@@ -429,7 +429,7 @@ $type_icons = [
                             <div class="text-[10px] font-bold text-emerald-500 bg-emerald-500/5 px-3 py-1 rounded-full"><?= $s['duration_seconds'] ?>s</div>
                         </div>
                         
-                        <a href="?key=<?= $key ?>&module=session_detail&id=<?= $s['s_id_text'] ?>" 
+                        <a href="?module=session_detail&id=<?= $s['s_id_text'] ?>"
                            target="_blank"
                            class="text-[10px] font-black text-slate-500 hover:text-blue-400 uppercase tracking-widest transition flex items-center gap-2">
                             Détails <i class="fa-solid fa-up-right-from-square text-[9px]"></i>

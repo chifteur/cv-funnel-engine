@@ -57,3 +57,10 @@ function get_db_version($pdo) {
         return 'non-initialisée';
     }
 }
+
+function get_admin_access_key_hash(PDO $db): ?string {
+    $stmt = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'admin_access_key_hash' LIMIT 1");
+    $stmt->execute();
+    $hash = $stmt->fetchColumn();
+    return is_string($hash) && $hash !== '' ? $hash : null;
+}

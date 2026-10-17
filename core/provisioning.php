@@ -33,6 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $site_url = rtrim($protocol . $_SERVER['HTTP_HOST'] . $path, '/\\');
 
     try {
+        if (!is_string($admin_key) || strlen($admin_key) < 12 || strlen($admin_key) > 256) {
+            throw new RuntimeException("La clé d'administration doit contenir entre 12 et 256 caractères.");
+        }
+
         // 1. Test de la connexion à la base de données
         $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
@@ -49,6 +53,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("Le fichier de structure SQL (/core/sql/structure.sql) est introuvable.");
         }
 
+        $adminKeyHash = password_hash($admin_key, PASSWORD_DEFAULT);
+        $saveAdminKey = $pdo->prepare(
+            "INSERT INTO settings (setting_key, setting_value) VALUES ('admin_access_key_hash', ?)
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+        );
+        $saveAdminKey->execute([$adminKeyHash]);
+
         // 3. Préparation du nouveau fichier de configuration
         $templateFile = __DIR__ . '/config.exemple.php';
         if (!file_exists($templateFile)) {
@@ -61,7 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $configContent = preg_replace("/define\('DB_NAME',\s*'.*?'\);/", "define('DB_NAME', '" . addslashes($db_name) . "');", $configContent);
         $configContent = preg_replace("/define\('DB_USER',\s*'.*?'\);/", "define('DB_USER', '" . addslashes($db_user) . "');", $configContent);
         $configContent = preg_replace("/define\('DB_PASS',\s*'.*?'\);/", "define('DB_PASS', '" . addslashes($db_pass) . "');", $configContent);
-        $configContent = preg_replace("/define\('ADMIN_ACCESS_KEY',\s*'.*?'\);/", "define('ADMIN_ACCESS_KEY', '" . addslashes($admin_key) . "');", $configContent);
         $configContent = preg_replace("/define\('VERSION_ACCESS_KEY',\s*'.*?'\);/", "define('VERSION_ACCESS_KEY', '" . addslashes($version_key) . "');", $configContent);
         $configContent = preg_replace("/define\('SITE_URL',\s*'.*?'\);/", "define('SITE_URL', '" . addslashes($site_url) . "');", $configContent);
 
@@ -120,13 +130,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p>Le fichier de configuration a été créé, la base de données est prête et l'arborescence de stockage a été générée.</p>
             
             <p style="margin-top: 20px; font-weight: bold;">Prochaine étape :</p>
-            <a href="<?= htmlspecialchars($site_url) ?>/manage?key=<?= htmlspecialchars($admin_key) ?>" 
+            <a href="<?= htmlspecialchars($site_url) ?>/manage"
                style="display: inline-block; padding: 12px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
                Accéder à l'administration
             </a>
             
             <p style="font-size: 12px; color: #888; margin-top: 15px;">
-                Note : Pensez à noter votre clé d'accès admin si vous ne l'avez pas déjà fait.
+                La clé définie pendant l'installation sera demandée sur la page de connexion.
             </p>
         </div>
     <?php else: ?>
@@ -155,8 +165,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="password" id="db_pass" name="db_pass" required>
             </div>
             <div class="form-group">
-                <label for="admin_key">Clé d'accès Admin (ADMIN_ACCESS_KEY)</label>
-                <input type="text" id="admin_key" name="admin_key" value="<?= htmlspecialchars($_POST['admin_key'] ?? bin2hex(random_bytes(16))) ?>" required>
+                <label for="admin_key">Clé d'accès Admin (12 caractères minimum)</label>
+                <input type="password" id="admin_key" name="admin_key" minlength="12" maxlength="256" autocomplete="new-password" required>
             </div>
             <div class="form-group">
                 <label for="version_key">Clé d'accès Version (VERSION_ACCESS_KEY) Demandée à l'admin la clef.</label>

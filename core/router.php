@@ -47,27 +47,56 @@ function dispatch(string $request_uri): void {
     //$session_id = $_SESSION['current_telemetry_id'];
 
 
-    // 1. Administration Modulaire (manage?key=...&module=...&id=...)
+    // 1. Administration modulaire
     if ($path === 'manage') {
-        $providedKey = $_GET['key'] ?? '';
-        
-        // Sécurité : Vérification de la clé
-        if ($providedKey !== ADMIN_ACCESS_KEY) {
-            render_view('public_home');
+        $storedAdminKeyHash = get_admin_access_key_hash($db);
+        $csrfToken = $_SESSION['admin_csrf_token'] ??= bin2hex(random_bytes(32));
+        $isAuthenticated = $storedAdminKeyHash !== null
+            && isset($_SESSION['admin_key_fingerprint'])
+            && is_string($_SESSION['admin_key_fingerprint'])
+            && hash_equals($storedAdminKeyHash, $_SESSION['admin_key_fingerprint']);
+
+        if (!$isAuthenticated && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'admin_login') {
+            $submittedToken = $_POST['csrf_token'] ?? '';
+            $providedKey = $_POST['admin_key'] ?? '';
+            $validCsrf = is_string($submittedToken) && hash_equals($csrfToken, $submittedToken);
+            $validKey = $storedAdminKeyHash !== null
+                && is_string($providedKey)
+                && password_verify($providedKey, $storedAdminKeyHash);
+
+            if ($validCsrf && $validKey) {
+                session_regenerate_id(true);
+                $_SESSION['admin_key_fingerprint'] = $storedAdminKeyHash;
+                $isAuthenticated = true;
+            } else {
+                render_view('admin_login', [
+                    'csrfToken' => $csrfToken,
+                    'loginError' => $storedAdminKeyHash === null
+                        ? "Aucune clé d’administration n’est configurée dans settings. Termine le provisioning avant de te connecter."
+                        : 'Clé invalide. Vérifie la saisie et réessaie.',
+                ]);
+                return;
+            }
+        }
+
+        if (!$isAuthenticated) {
+            render_view('admin_login', [
+                'csrfToken' => $csrfToken,
+                'loginError' => $storedAdminKeyHash === null
+                    ? "Aucune clé d’administration n’est configurée dans settings."
+                    : '',
+            ]);
             return;
         }
 
-        // Paramètres
         $module = $_GET['module'] ?? 'dashboard'; // 'dashboard' par défaut
         $id = $_GET['id'] ?? null;
-        
         $view_name = "admin_module_" . $module;
 
-        // Rendu de la vue
         render_view($view_name, [
             'module' => $module,
             'id' => $id,
-            'key' => $providedKey
+            'csrfToken' => $csrfToken
         ]);
         return;
     }
