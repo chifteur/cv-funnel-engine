@@ -82,8 +82,14 @@ try {
     }
 
 } catch (Throwable $e) {
+    $message = "❌ Erreur fatale lors de la migration : " . $e->getMessage();
+    if ($is_cli) {
+        fwrite(STDERR, $message . PHP_EOL);
+        exit(1);
+    }
     http_response_code(500);
-    die("❌ Erreur fatale lors de la migration : " . $e->getMessage());
+    echo $message;
+    exit;
 }
 
 function migrateLegacyAdminAccessKey(PDO $db): void {

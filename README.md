@@ -66,13 +66,14 @@ cv-funnel-engine/
    cd cv-funnel-engine
    ```
 
-2. **Configurer la base de données**
+2. **Choisir un mode d’installation**
+
+   **Provisioning web (recommandé)** : ne crée pas `core/config.php`. Configure le serveur web pour servir `public/`, puis visite le site. Le formulaire de provisioning crée la configuration et la base, puis affiche une fois le lien d’activation à transmettre au propriétaire.
+
+   **Installation manuelle** : crée `core/config.php` depuis le modèle, puis remplace les constantes de connexion et d’URL par celles de ton instance :
    ```bash
    cp core/config.exemple.php core/config.php
    ```
-   La clé d’administration est demandée par le formulaire de provisioning ; elle n’est pas à ajouter dans `config.php`.
-
-3. **Éditer `core/config.php`** avec vos paramètres :
    ```php
    define('DB_HOST', 'votre-hote-mysql');
    define('DB_NAME', 'nom-de-la-bdd');
@@ -81,19 +82,18 @@ cv-funnel-engine/
    define('SITE_URL', 'https://votre-domaine.ch');
    ```
 
-4. **Créer la base de données**
+   Importe `core/sql/structure.sql` et `core/sql/seed.sql`, crée `logs/` et `storage/docs/`, puis génère un lien d’activation à usage unique :
    ```bash
    mysql -h [DB_HOST] -u [DB_USER] -p [DB_NAME] < core/sql/structure.sql
    mysql -h [DB_HOST] -u [DB_USER] -p [DB_NAME] < core/sql/seed.sql
-   ```
-
-5. **Créer les dossiers nécessaires**
-   ```bash
    mkdir -p logs storage/docs
    chmod 755 logs storage
+   php core/create_admin_activation_link.php
    ```
 
-6. **Configurer le serveur web** pour pointer vers le dossier `public/`
+3. **Configurer les emails SMTP** selon la section ci-dessous avant que le propriétaire ne termine l’activation. Si le SMTP n’est pas prêt, il pourra demander le renvoi de l’email après configuration.
+
+4. **Transmettre le lien d’activation** au propriétaire par un canal sûr. Il expire après 48 heures ; l’opérateur peut en créer un nouveau en CLI si nécessaire.
 
 ## 🚀 Utilisation
 
@@ -104,9 +104,44 @@ Rendez-vous sur :
 https://votre-domaine.ch/manage
 ```
 
-La clé d’administration est définie pendant le provisioning, puis conservée uniquement sous forme de hash dans la table `settings`. Elle est demandée sur la page de connexion et peut ensuite être modifiée depuis l’onglet **Sécurité** du tableau de bord. Elle n’est jamais enregistrée dans `config.php`.
+La clé d’administration est définie lors de l’activation, puis conservée uniquement sous forme de hash dans `settings`. L’adresse email de récupération doit être vérifiée avant la connexion et peut être modifiée dans l’onglet **Sécurité**. La page de connexion permet de demander un lien de remplacement de clé ; il est à usage unique, expire après 30 minutes et invalide les sessions admin existantes. La clé n’est jamais enregistrée en clair dans `config.php`.
 
-Pour une installation existante dont `config.php` contient encore `ADMIN_ACCESS_KEY`, la migration `1.0.2` transfère la clé vers `settings` uniquement si aucun hash n’y existe déjà, puis retire sa définition de `config.php`. Elle s’exécute via le moteur habituel (`php core/migrate.php`), notamment à la fin du workflow d’orchestration lorsque les tâches DB sont activées.
+Pour une installation existante, les migrations `1.0.2` et `1.0.3` s’exécutent via le moteur habituel (`php core/migrate.php`), notamment à la fin du workflow d’orchestration lorsque les tâches DB sont activées. La migration `1.0.2` transfère l’ancienne clé de `config.php` vers `settings` puis la retire. À la première connexion après mise à jour, l’administrateur doit configurer et vérifier une adresse de récupération.
+
+Si l’installation a été configurée manuellement ou si le lien initial a expiré/perdu, l’opérateur peut en générer un nouveau depuis le terminal avec `php core/create_admin_activation_link.php`. Cette commande refuse de créer un lien pour une instance déjà activée ; une clé oubliée se réinitialise par email.
+
+### Emails de récupération (PHPMailer / SMTP)
+
+Installe PHPMailer dans le répertoire personnel du compte serveur, hors du document root (sur DreamHost Shared, suis le [guide PHPMailer DreamHost](https://help.dreamhost.com/hc/en-us/articles/360031174411-PHPMailer-Installing-on-a-shared-server)). La variable `CVFE_PHPMAILER_PATH` doit pointer vers son dossier `src`.
+
+Le site lit en priorité ces variables depuis l’environnement du processus PHP :
+
+| Variable | Exemple DreamHost | Obligatoire |
+|---|---|---|
+| `CVFE_PHPMAILER_PATH` | `/home/USER/PHPMailer/src` | Oui |
+| `CVFE_SMTP_HOST` | `smtp.dreamhost.com` | Oui |
+| `CVFE_SMTP_PORT` | `587` (TLS) ou `465` (SMTPS) | Non, défaut `587` |
+| `CVFE_SMTP_USERNAME` | `admin@exemple.ch` | Oui |
+| `CVFE_SMTP_PASSWORD` | Mot de passe de cette boîte email | Oui |
+| `CVFE_SMTP_FROM_EMAIL` | `admin@exemple.ch` | Oui |
+| `CVFE_SMTP_FROM_NAME` | `CV Funnel Engine` | Non |
+
+Les identifiants SMTP sont communs aux instances hébergées sous ce compte ; ils ne vont ni dans Git, ni dans `settings`, ni dans les URLs. Si l’hébergement ne transmet pas ces variables à PHP, le site accepte à la place un fichier PHP serveur `~/.cvfe-smtp.php`, hors document root, lisible par le compte PHP et sans droit d’écriture pour le groupe ou les autres. Ce fichier doit retourner un tableau avec les clés `mailer_path`, `host`, `port`, `username`, `password`, `from_email` et, facultativement, `from_name`. Exemple :
+
+```php
+<?php
+return [
+    'mailer_path' => '/home/USER/PHPMailer/src',
+    'host' => 'smtp.dreamhost.com',
+    'port' => 587,
+    'username' => 'admin@exemple.ch',
+    'password' => 'SECRET_SMTP',
+    'from_email' => 'admin@exemple.ch',
+    'from_name' => 'CV Funnel Engine',
+];
+```
+
+Le fallback peut pointer vers un autre fichier privé en définissant `CVFE_SMTP_CONFIG_FILE`. Sur DreamHost, vérifie les variables depuis une requête PHP du site : celles exportées uniquement dans un terminal SSH ne sont pas nécessairement transmises au processus web. Les emails sont des messages transactionnels ponctuels ; respecte les [quotas SMTP DreamHost](https://help.dreamhost.com/hc/en-us/articles/215730437-SMTP-quota-limits).
 
 ### Modules disponibles
 

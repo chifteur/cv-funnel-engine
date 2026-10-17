@@ -16,6 +16,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $debug_action = $action;
 
     try {
+        if ($action === 'change_admin_recovery_email') {
+            $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+            $currentKey = $_POST['current_admin_key'] ?? '';
+            $newEmail = $_POST['recovery_email'] ?? '';
+            $newEmail = is_string($newEmail) ? strtolower(trim($newEmail)) : '';
+            $storedKeyHash = get_admin_access_key_hash($db);
+            $validCsrf = is_string($submittedCsrfToken)
+                && isset($_SESSION['admin_csrf_token'])
+                && hash_equals($_SESSION['admin_csrf_token'], $submittedCsrfToken);
+            $validCurrentKey = $storedKeyHash !== null
+                && is_string($currentKey)
+                && password_verify($currentKey, $storedKeyHash);
+
+            if (!$validCsrf) {
+                $message = "❌ La demande a expiré. Recharge la page et réessaie.";
+            } elseif (!$validCurrentKey) {
+                $message = "❌ La clé actuelle est incorrecte.";
+            } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL) || strlen($newEmail) > 254) {
+                $message = "❌ Saisis une adresse email valide.";
+            } elseif (!admin_recovery_request_allowed(
+                $db,
+                'email_verification',
+                $newEmail,
+                $_SERVER['REMOTE_ADDR'] ?? ''
+            )) {
+                $message = "❌ Trop de demandes récentes pour cette adresse ou cette connexion. Réessaie plus tard.";
+            } else {
+                $db->beginTransaction();
+                set_admin_setting($db, 'admin_recovery_email', $newEmail);
+                set_admin_setting($db, 'admin_recovery_email_verified', '0');
+                $invalidateTokens = $db->prepare(
+                    "UPDATE admin_recovery_tokens SET used_at = NOW()
+                     WHERE purpose IN ('email_verification', 'password_reset') AND used_at IS NULL"
+                );
+                $invalidateTokens->execute();
+                $verificationToken = create_admin_recovery_token($db, 'email_verification', 1440, $newEmail);
+                $db->commit();
+                try {
+                    send_admin_recovery_email(
+                        $newEmail,
+                        'Vérifie ta nouvelle adresse de récupération',
+                        $verificationToken,
+                        'email_verification'
+                    );
+                    $message = "✅ Un email de vérification a été envoyé. L’adresse ne sera utilisable pour la récupération qu’après confirmation.";
+                } catch (RuntimeException $e) {
+                    Logger::error('Admin recovery email change verification could not be sent', ['error' => $e->getMessage()]);
+                    $message = "❌ L’adresse est enregistrée en attente de vérification, mais l’email n’a pas pu être envoyé. Vérifie le SMTP ou utilise le bouton de renvoi.";
+                }
+            }
+        }
+
         if ($action === 'update_admin_access_key') {
             $submittedCsrfToken = $_POST['csrf_token'] ?? '';
             $currentKey = $_POST['current_admin_key'] ?? '';
@@ -39,6 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = "❌ La confirmation ne correspond pas à la nouvelle clé.";
             } else {
                 $newKeyHash = password_hash($newKey, PASSWORD_DEFAULT);
+                if (!is_string($newKeyHash)) {
+                    throw new RuntimeException('Impossible de sécuriser la nouvelle clé admin.');
+                }
+
                 $stmt = $db->prepare(
                     "INSERT INTO settings (setting_key, setting_value) VALUES ('admin_access_key_hash', ?)
                      ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
@@ -471,6 +527,8 @@ $categories = get_categories();
 $allCategories = $db->query("SELECT * FROM category_dictionary ORDER BY display_order ASC")->fetchAll();
 $default_category_exp = !empty($categories) ? $categories[0]['code'] : 'ops';
 $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'management';
+$adminRecoveryEmail = get_admin_setting($db, 'admin_recovery_email') ?? '';
+$adminRecoveryEmailVerified = get_admin_setting($db, 'admin_recovery_email_verified') === '1';
 ?>
 
 <!DOCTYPE html>
@@ -687,6 +745,37 @@ $default_category_skill = !empty($categories) ? $categories[0]['code'] : 'manage
                         Enregistrer la nouvelle clé
                     </button>
                 </form>
+                <form method="POST" class="space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <input type="hidden" name="action" value="change_admin_recovery_email">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <div>
+                        <h3 class="text-lg font-extrabold">Adresse de récupération</h3>
+                        <p class="mt-1 text-sm text-slate-500">
+                            <?= $adminRecoveryEmailVerified ? 'Adresse vérifiée.' : 'Adresse non vérifiée : la récupération est désactivée.' ?>
+                        </p>
+                    </div>
+                    <div>
+                        <label for="recovery_email" class="mb-2 block text-sm font-bold">Nouvelle adresse email</label>
+                        <input id="recovery_email" name="recovery_email" type="email" maxlength="254" autocomplete="email" required
+                            value="<?= htmlspecialchars($adminRecoveryEmail, ENT_QUOTES, 'UTF-8') ?>"
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    </div>
+                    <div>
+                        <label for="current_admin_key_email" class="mb-2 block text-sm font-bold">Clé actuelle, pour confirmer le changement</label>
+                        <input id="current_admin_key_email" name="current_admin_key" type="password" autocomplete="current-password" required
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    </div>
+                    <button type="submit" class="rounded-lg border border-blue-700 px-5 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-50">
+                        Enregistrer et envoyer un email de vérification
+                    </button>
+                </form>
+                <?php if (!$adminRecoveryEmailVerified && $adminRecoveryEmail !== ''): ?>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="resend_admin_verification">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                        <button type="submit" class="text-sm font-semibold text-blue-700 hover:underline">Renvoyer l’email de vérification</button>
+                    </form>
+                <?php endif; ?>
             </div>
 
             <div x-show="tab === 'apps'" class="space-y-6">

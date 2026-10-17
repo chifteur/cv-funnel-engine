@@ -3,6 +3,7 @@
 /** @var string $loginError */
 $escapedCsrfToken = htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8');
 $escapedError = htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8');
+$showLoginForm = $showLoginForm ?? true;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -22,6 +23,11 @@ $escapedError = htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8');
             <p role="alert" class="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800"><?= $escapedError ?></p>
         <?php endif; ?>
 
+        <?php if (!empty($resetComplete)): ?>
+            <p role="status" class="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">Clé modifiée. Connecte-toi avec la nouvelle clé.</p>
+        <?php endif; ?>
+
+        <?php if ($showLoginForm): ?>
         <form method="POST" class="mt-6 space-y-4">
             <input type="hidden" name="action" value="admin_login">
             <input type="hidden" name="csrf_token" value="<?= $escapedCsrfToken ?>">
@@ -34,6 +40,16 @@ $escapedError = htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8');
                 Ouvrir le tableau de bord
             </button>
         </form>
+        <p class="mt-5 text-center text-sm"><a class="font-semibold text-blue-700 hover:underline" href="?forgot_key=1">Clé oubliée ?</a></p>
+        <?php endif; ?>
+
+        <?php if (!empty($showResendVerification)): ?>
+            <form method="POST" class="mt-5">
+                <input type="hidden" name="action" value="resend_admin_verification">
+                <input type="hidden" name="csrf_token" value="<?= $escapedCsrfToken ?>">
+                <button type="submit" class="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Renvoyer l’email de vérification</button>
+            </form>
+        <?php endif; ?>
     </main>
 </body>
 </html>

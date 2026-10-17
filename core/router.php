@@ -2,6 +2,7 @@
 /**
  * Routeur Logic - Project Manganese
  */
+require_once __DIR__ . '/admin_recovery.php';
 
 function dispatch(string $request_uri): void {
     $db = get_db_connection();
@@ -49,8 +50,344 @@ function dispatch(string $request_uri): void {
 
     // 1. Administration modulaire
     if ($path === 'manage') {
+        header('Referrer-Policy: no-referrer');
+        header('Cache-Control: no-store, max-age=0');
+        header('Pragma: no-cache');
+        header('X-Robots-Tag: noindex, nofollow, noarchive');
+
+        $manageUrl = rtrim(SITE_URL, '/') . '/manage';
         $storedAdminKeyHash = get_admin_access_key_hash($db);
         $csrfToken = $_SESSION['admin_csrf_token'] ??= bin2hex(random_bytes(32));
+        $postAction = $_POST['action'] ?? '';
+
+        if (isset($_GET['activation']) && in_array($_GET['activation'], ['pending', 'mail_error'], true)) {
+            render_view('admin_recovery', [
+                'mode' => 'status',
+                'csrfToken' => $csrfToken,
+                'statusMessage' => $_GET['activation'] === 'mail_error'
+                    ? 'Le compte est configuré, mais l’email de vérification n’a pas pu être envoyé. Vérifie la configuration email puis réessaie.'
+                    : 'Compte configuré. Consulte ta boîte email et confirme l’adresse avant de te connecter.',
+                'showResendVerification' => true,
+            ]);
+            return;
+        }
+
+        if (isset($_GET['email_verified']) && $_GET['email_verified'] === '1') {
+            render_view('admin_recovery', [
+                'mode' => 'status',
+                'csrfToken' => $csrfToken,
+                'statusMessage' => 'Adresse de récupération vérifiée. Tu peux maintenant te connecter.',
+            ]);
+            return;
+        }
+
+        if (isset($_GET['activate']) || $postAction === 'activate_admin') {
+            $activationToken = $_GET['activate'] ?? ($_POST['activation_token'] ?? '');
+            $activationToken = is_string($activationToken) ? $activationToken : '';
+
+            if (!is_admin_recovery_token_valid($db, $activationToken, 'activation')) {
+                render_view('admin_recovery', [
+                    'mode' => 'status',
+                    'csrfToken' => $csrfToken,
+                    'statusMessage' => 'Ce lien d’activation est invalide, expiré ou déjà utilisé. Demande à l’opérateur de générer un nouveau lien.',
+                ]);
+                return;
+            }
+
+            if ($postAction === 'activate_admin') {
+                $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+                $newKey = $_POST['new_admin_key'] ?? '';
+                $confirmKey = $_POST['confirm_admin_key'] ?? '';
+                $recoveryEmail = $_POST['recovery_email'] ?? '';
+                $recoveryEmail = is_string($recoveryEmail) ? strtolower(trim($recoveryEmail)) : '';
+
+                if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+                    $recoveryError = 'Le formulaire a expiré. Recharge le lien et réessaie.';
+                } elseif (!is_string($newKey) || strlen($newKey) < 12 || strlen($newKey) > 256) {
+                    $recoveryError = 'La clé doit contenir entre 12 et 256 caractères.';
+                } elseif (!is_string($confirmKey) || !hash_equals($newKey, $confirmKey)) {
+                    $recoveryError = 'La confirmation de la clé ne correspond pas.';
+                } elseif (!filter_var($recoveryEmail, FILTER_VALIDATE_EMAIL) || strlen($recoveryEmail) > 254) {
+                    $recoveryError = 'Saisis une adresse email valide.';
+                } else {
+                    $newKeyHash = password_hash($newKey, PASSWORD_DEFAULT);
+                    if (!is_string($newKeyHash)) {
+                        throw new RuntimeException('Impossible de sécuriser la clé admin.');
+                    }
+
+                    $db->beginTransaction();
+                    if (!consume_admin_recovery_token($db, $activationToken, 'activation')) {
+                        $db->rollBack();
+                        $recoveryError = 'Ce lien d’activation a déjà été utilisé ou a expiré.';
+                    } else {
+                        set_admin_setting($db, 'admin_access_key_hash', $newKeyHash);
+                        set_admin_setting($db, 'admin_recovery_email', $recoveryEmail);
+                        set_admin_setting($db, 'admin_recovery_email_verified', '0');
+                        $verificationToken = create_admin_recovery_token($db, 'email_verification', 1440, $recoveryEmail);
+                        $db->commit();
+                        session_regenerate_id(true);
+                        $_SESSION['admin_key_fingerprint'] = $newKeyHash;
+
+                        try {
+                            send_admin_recovery_email(
+                                $recoveryEmail,
+                                'Vérifie ton adresse de récupération',
+                                $verificationToken,
+                                'email_verification'
+                            );
+                            header('Location: ' . $manageUrl . '?activation=pending', true, 303);
+                            exit;
+                        } catch (RuntimeException $e) {
+                            Logger::error('Initial admin email verification could not be sent', ['error' => $e->getMessage()]);
+                            header('Location: ' . $manageUrl . '?activation=mail_error', true, 303);
+                            exit;
+                        }
+                    }
+                }
+            }
+
+            render_view('admin_recovery', [
+                'mode' => 'activation',
+                'csrfToken' => $csrfToken,
+                'token' => $activationToken,
+                'recoveryError' => $recoveryError ?? '',
+            ]);
+            return;
+        }
+
+        if (isset($_GET['verify_email']) || $postAction === 'verify_admin_email') {
+            $verificationToken = $_GET['verify_email'] ?? ($_POST['verification_token'] ?? '');
+            $verificationToken = is_string($verificationToken) ? $verificationToken : '';
+            if ($postAction === 'verify_admin_email') {
+                $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+                if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+                    $recoveryError = 'Le formulaire a expiré. Recharge le lien et réessaie.';
+                } elseif (($pendingEmail = get_admin_setting($db, 'admin_recovery_email')) !== null) {
+                    $db->beginTransaction();
+                    if (consume_admin_recovery_token($db, $verificationToken, 'email_verification', $pendingEmail)) {
+                        set_admin_setting($db, 'admin_recovery_email_verified', '1');
+                        $invalidateTokens = $db->prepare(
+                            "UPDATE admin_recovery_tokens SET used_at = NOW()
+                             WHERE purpose = 'email_verification' AND used_at IS NULL"
+                        );
+                        $invalidateTokens->execute();
+                        $db->commit();
+                        header('Location: ' . $manageUrl . '?email_verified=1', true, 303);
+                        exit;
+                    }
+                    $db->rollBack();
+                    $recoveryError = 'Ce lien de vérification est invalide, expiré ou déjà utilisé.';
+                } else {
+                    $recoveryError = 'Ce lien de vérification est invalide, expiré ou déjà utilisé.';
+                }
+            } elseif (
+                ($pendingEmail = get_admin_setting($db, 'admin_recovery_email')) === null
+                || !is_admin_recovery_token_valid($db, $verificationToken, 'email_verification', $pendingEmail)
+            ) {
+                $recoveryError = 'Ce lien de vérification est invalide, expiré ou déjà utilisé.';
+            }
+
+            render_view('admin_recovery', [
+                'mode' => 'verify_email',
+                'csrfToken' => $csrfToken,
+                'token' => $verificationToken,
+                'recoveryError' => $recoveryError ?? '',
+            ]);
+            return;
+        }
+
+        if (isset($_GET['reset_key']) || $postAction === 'reset_admin_key') {
+            $resetToken = $_GET['reset_key'] ?? ($_POST['reset_token'] ?? '');
+            $resetToken = is_string($resetToken) ? $resetToken : '';
+            $verifiedEmail = get_admin_setting($db, 'admin_recovery_email');
+            $hasVerifiedEmail = get_admin_setting($db, 'admin_recovery_email_verified') === '1'
+                && is_string($verifiedEmail)
+                && $verifiedEmail !== '';
+            if ($postAction === 'reset_admin_key') {
+                $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+                $newKey = $_POST['new_admin_key'] ?? '';
+                $confirmKey = $_POST['confirm_admin_key'] ?? '';
+                if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+                    $recoveryError = 'Le formulaire a expiré. Recharge le lien et réessaie.';
+                } elseif (!is_string($newKey) || strlen($newKey) < 12 || strlen($newKey) > 256) {
+                    $recoveryError = 'La clé doit contenir entre 12 et 256 caractères.';
+                } elseif (!is_string($confirmKey) || !hash_equals($newKey, $confirmKey)) {
+                    $recoveryError = 'La confirmation de la clé ne correspond pas.';
+                } else {
+                    $newKeyHash = password_hash($newKey, PASSWORD_DEFAULT);
+                    if (!is_string($newKeyHash)) {
+                        throw new RuntimeException('Impossible de sécuriser la clé admin.');
+                    }
+
+                    $db->beginTransaction();
+                    if (!$hasVerifiedEmail
+                        || !consume_admin_recovery_token($db, $resetToken, 'password_reset', $verifiedEmail)) {
+                        $db->rollBack();
+                        $recoveryError = 'Ce lien est invalide, expiré ou déjà utilisé.';
+                    } else {
+                        $invalidateTokens = $db->prepare(
+                            "UPDATE admin_recovery_tokens SET used_at = NOW()
+                             WHERE purpose = 'password_reset' AND used_at IS NULL"
+                        );
+                        $invalidateTokens->execute();
+                        set_admin_setting($db, 'admin_access_key_hash', $newKeyHash);
+                        $db->commit();
+                        unset($_SESSION['admin_key_fingerprint']);
+                        header('Location: ' . $manageUrl . '?reset=complete', true, 303);
+                        exit;
+                    }
+                }
+            } elseif (!$hasVerifiedEmail
+                || !is_admin_recovery_token_valid($db, $resetToken, 'password_reset', $verifiedEmail)) {
+                $recoveryError = 'Ce lien est invalide, expiré ou déjà utilisé.';
+            }
+
+            render_view('admin_recovery', [
+                'mode' => 'reset_key',
+                'csrfToken' => $csrfToken,
+                'token' => $resetToken,
+                'recoveryError' => $recoveryError ?? '',
+            ]);
+            return;
+        }
+
+        if (isset($_GET['forgot_key']) || $postAction === 'request_admin_reset') {
+            $recoveryMessage = 'Si cette adresse est vérifiée pour cette instance, un lien de réinitialisation sera envoyé.';
+            if ($postAction === 'request_admin_reset') {
+                $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+                $email = $_POST['recovery_email'] ?? '';
+                $email = is_string($email) ? strtolower(trim($email)) : '';
+                if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+                    $recoveryMessage = 'Le formulaire a expiré. Recharge la page et réessaie.';
+                } elseif (filter_var($email, FILTER_VALIDATE_EMAIL) && strlen($email) <= 254) {
+                    $allowed = admin_recovery_request_allowed($db, 'password_reset', $email, $_SERVER['REMOTE_ADDR'] ?? '');
+                    $configuredEmail = get_admin_setting($db, 'admin_recovery_email');
+                    if ($allowed
+                        && get_admin_setting($db, 'admin_recovery_email_verified') === '1'
+                        && is_string($configuredEmail)
+                        && hash_equals($configuredEmail, $email)
+                        && get_admin_access_key_hash($db) !== null) {
+                        $db->beginTransaction();
+                        $invalidateTokens = $db->prepare(
+                            "UPDATE admin_recovery_tokens SET used_at = NOW()
+                             WHERE purpose = 'password_reset' AND used_at IS NULL"
+                        );
+                        $invalidateTokens->execute();
+                        $resetToken = create_admin_recovery_token($db, 'password_reset', 30, $email);
+                        $db->commit();
+                        try {
+                            send_admin_recovery_email($email, 'Réinitialise ta clé admin', $resetToken, 'password_reset');
+                        } catch (RuntimeException $e) {
+                            Logger::error('Admin password reset email could not be sent', ['error' => $e->getMessage()]);
+                            consume_admin_recovery_token($db, $resetToken, 'password_reset');
+                        }
+                    }
+                }
+            }
+
+            render_view('admin_recovery', [
+                'mode' => 'forgot_key',
+                'csrfToken' => $csrfToken,
+                'recoveryMessage' => $recoveryMessage,
+            ]);
+            return;
+        }
+
+        if ($postAction === 'setup_admin_recovery_email') {
+            $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+            $currentKey = $_POST['current_admin_key'] ?? '';
+            $email = $_POST['recovery_email'] ?? '';
+            $email = is_string($email) ? strtolower(trim($email)) : '';
+            $configuredKeyHash = get_admin_access_key_hash($db);
+            $sessionFingerprint = $_SESSION['admin_key_fingerprint'] ?? null;
+            $sessionAuthorized = $configuredKeyHash !== null
+                && is_string($sessionFingerprint)
+                && hash_equals($configuredKeyHash, $sessionFingerprint);
+            if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+                $recoveryError = 'Le formulaire a expiré. Recharge la page et réessaie.';
+            } elseif (!$sessionAuthorized) {
+                http_response_code(403);
+                $recoveryError = 'Reconnecte-toi avec ta clé admin avant de configurer l’adresse de récupération.';
+            } elseif ($configuredKeyHash === null || !is_string($currentKey) || !password_verify($currentKey, $configuredKeyHash)) {
+                $recoveryError = 'La clé admin est incorrecte.';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 254) {
+                $recoveryError = 'Saisis une adresse email valide.';
+            } elseif (!admin_recovery_request_allowed(
+                $db,
+                'email_verification',
+                $email,
+                $_SERVER['REMOTE_ADDR'] ?? ''
+            )) {
+                $recoveryError = 'Trop de demandes récentes pour cette adresse ou cette connexion. Réessaie plus tard.';
+            } else {
+                $db->beginTransaction();
+                set_admin_setting($db, 'admin_recovery_email', $email);
+                set_admin_setting($db, 'admin_recovery_email_verified', '0');
+                $stmt = $db->prepare(
+                    "UPDATE admin_recovery_tokens SET used_at = NOW()
+                     WHERE purpose IN ('email_verification', 'password_reset') AND used_at IS NULL"
+                );
+                $stmt->execute();
+                $verificationToken = create_admin_recovery_token($db, 'email_verification', 1440, $email);
+                $db->commit();
+                try {
+                    send_admin_recovery_email($email, 'Vérifie ton adresse de récupération', $verificationToken, 'email_verification');
+                    render_view('admin_recovery', [
+                        'mode' => 'status',
+                        'csrfToken' => $csrfToken,
+                        'statusMessage' => 'Un email de vérification a été envoyé. Confirme l’adresse avant de te connecter.',
+                        'showResendVerification' => true,
+                    ]);
+                    return;
+                } catch (RuntimeException $e) {
+                    Logger::error('Admin recovery email setup could not be sent', ['error' => $e->getMessage()]);
+                    $recoveryError = 'L’adresse est enregistrée en attente de vérification, mais l’email n’a pas pu être envoyé. Vérifie la configuration email ou réessaie plus tard.';
+                }
+            }
+
+            render_view('admin_recovery', [
+                'mode' => 'setup_email',
+                'csrfToken' => $csrfToken,
+                'recoveryError' => $recoveryError,
+                'currentEmail' => $email,
+                'showResendVerification' => get_admin_setting($db, 'admin_recovery_email_verified') !== '1'
+                    && get_admin_setting($db, 'admin_recovery_email') !== null,
+            ]);
+            return;
+        }
+
+        if ($postAction === 'resend_admin_verification') {
+            $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+            if (is_string($submittedCsrfToken) && hash_equals($csrfToken, $submittedCsrfToken)) {
+                $email = get_admin_setting($db, 'admin_recovery_email');
+                if (is_string($email) && $email !== ''
+                    && get_admin_setting($db, 'admin_recovery_email_verified') !== '1'
+                    && admin_recovery_request_allowed($db, 'email_verification', $email, $_SERVER['REMOTE_ADDR'] ?? '')) {
+                    $db->beginTransaction();
+                    $invalidateTokens = $db->prepare(
+                        "UPDATE admin_recovery_tokens SET used_at = NOW()
+                         WHERE purpose = 'email_verification' AND used_at IS NULL"
+                    );
+                    $invalidateTokens->execute();
+                    $verificationToken = create_admin_recovery_token($db, 'email_verification', 1440, $email);
+                    $db->commit();
+                    try {
+                        send_admin_recovery_email($email, 'Vérifie ton adresse de récupération', $verificationToken, 'email_verification');
+                    } catch (RuntimeException $e) {
+                        Logger::error('Admin email verification could not be resent', ['error' => $e->getMessage()]);
+                        consume_admin_recovery_token($db, $verificationToken, 'email_verification');
+                    }
+                }
+            }
+            render_view('admin_recovery', [
+                'mode' => 'status',
+                'csrfToken' => $csrfToken,
+                'statusMessage' => 'Si une adresse attend une vérification, un nouvel email sera envoyé.',
+                'showResendVerification' => true,
+            ]);
+            return;
+        }
+
         $isAuthenticated = $storedAdminKeyHash !== null
             && isset($_SESSION['admin_key_fingerprint'])
             && is_string($_SESSION['admin_key_fingerprint'])
@@ -83,8 +420,26 @@ function dispatch(string $request_uri): void {
             render_view('admin_login', [
                 'csrfToken' => $csrfToken,
                 'loginError' => $storedAdminKeyHash === null
-                    ? "Aucune clé d’administration n’est configurée dans settings."
-                    : '',
+                    ? "L’instance n’a pas encore été activée."
+                    : (get_admin_setting($db, 'admin_recovery_email_verified') !== '1'
+                        ? "Confirme ton adresse de récupération avant de te connecter."
+                        : ''),
+                'showLoginForm' => $storedAdminKeyHash !== null,
+                'showResendVerification' => $storedAdminKeyHash !== null
+                    && get_admin_setting($db, 'admin_recovery_email_verified') !== '1',
+                'resetComplete' => isset($_GET['reset']) && $_GET['reset'] === 'complete',
+            ]);
+            return;
+        }
+
+        if (get_admin_setting($db, 'admin_recovery_email_verified') !== '1') {
+            $pendingEmail = get_admin_setting($db, 'admin_recovery_email');
+            render_view('admin_recovery', [
+                'mode' => 'setup_email',
+                'csrfToken' => $csrfToken,
+                'recoveryError' => '',
+                'currentEmail' => $pendingEmail ?? '',
+                'showResendVerification' => is_string($pendingEmail) && $pendingEmail !== '',
             ]);
             return;
         }

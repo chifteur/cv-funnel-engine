@@ -1,4 +1,6 @@
 <?php
+header('Cache-Control: no-store, max-age=0');
+header('Referrer-Policy: no-referrer');
 /**
  * Provisioning & Auto-Configuration - Manganese OS
  * Ce script est déclenché automatiquement depuis public/index.php s'il détecte l'absence du fichier de configuration (config.php). 
@@ -13,13 +15,14 @@ if (file_exists($configFile)) {
 
 $error = '';
 $success = false;
+$activationUrl = '';
+$site_url = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $db_host = $_POST['db_host'] ?? 'localhost'; // Par défaut localhost ou 'mysql.votredomaine.ch'
     $db_name = $_POST['db_name'] ?? '';
     $db_user = $_POST['db_user'] ?? '';
     $db_pass = $_POST['db_pass'] ?? '';
-    $admin_key = $_POST['admin_key'] ?? '';
     $version_key = $_POST['version_key'] ?? '';
 
     // Déduction intelligente de SITE_URL
@@ -33,10 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $site_url = rtrim($protocol . $_SERVER['HTTP_HOST'] . $path, '/\\');
 
     try {
-        if (!is_string($admin_key) || strlen($admin_key) < 12 || strlen($admin_key) > 256) {
-            throw new RuntimeException("La clé d'administration doit contenir entre 12 et 256 caractères.");
-        }
-
         // 1. Test de la connexion à la base de données
         $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
@@ -53,12 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("Le fichier de structure SQL (/core/sql/structure.sql) est introuvable.");
         }
 
-        $adminKeyHash = password_hash($admin_key, PASSWORD_DEFAULT);
-        $saveAdminKey = $pdo->prepare(
-            "INSERT INTO settings (setting_key, setting_value) VALUES ('admin_access_key_hash', ?)
-             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+        $activationToken = bin2hex(random_bytes(32));
+        $activationTokenHash = hash('sha256', $activationToken);
+        $saveActivationToken = $pdo->prepare(
+            "INSERT INTO admin_recovery_tokens (token_hash, purpose, expires_at)
+             VALUES (?, 'activation', DATE_ADD(NOW(), INTERVAL 48 HOUR))"
         );
-        $saveAdminKey->execute([$adminKeyHash]);
+        $saveActivationToken->execute([$activationTokenHash]);
+        $activationUrl = $site_url . '/manage?activate=' . rawurlencode($activationToken);
 
         // 3. Préparation du nouveau fichier de configuration
         $templateFile = __DIR__ . '/config.exemple.php';
@@ -136,8 +137,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </a>
             
             <p style="font-size: 12px; color: #888; margin-top: 15px;">
-                La clé définie pendant l'installation sera demandée sur la page de connexion.
+                Transmets le lien d’activation une seule fois au propriétaire de l’instance, par un canal sûr. Il expire dans 48 heures.
             </p>
+                <label for="activation_url" style="display:block; margin-top:15px; font-size:12px; font-weight:bold;">Lien d’activation à transmettre une seule fois</label>
+                <textarea id="activation_url" readonly rows="3" style="width:100%; box-sizing:border-box; padding:8px; font-size:12px;"><?= htmlspecialchars($activationUrl, ENT_QUOTES, 'UTF-8') ?></textarea>
+                <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('activation_url').value)" style="margin-top:8px;">Copier le lien</button>
         </div>
     <?php else: ?>
         <h1>⚙️ Provisioning</h1>
@@ -164,10 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label for="db_pass">Mot de passe (DB_PASS)</label>
                 <input type="password" id="db_pass" name="db_pass" required>
             </div>
-            <div class="form-group">
-                <label for="admin_key">Clé d'accès Admin (12 caractères minimum)</label>
-                <input type="password" id="admin_key" name="admin_key" minlength="12" maxlength="256" autocomplete="new-password" required>
-            </div>
+            <p class="form-group" style="font-size:13px; color:#555;">La clé administrateur et l’adresse de récupération seront configurées par le propriétaire via un lien d’activation à usage unique.</p>
             <div class="form-group">
                 <label for="version_key">Clé d'accès Version (VERSION_ACCESS_KEY) Demandée à l'admin la clef.</label>
                 <input type="text" id="version_key" name="version_key" value="<?= htmlspecialchars($_POST['version_key'] ?? bin2hex(random_bytes(16))) ?>" required>
