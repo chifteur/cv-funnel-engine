@@ -102,14 +102,23 @@ function admin_recovery_request_allowed(PDO $db, string $type, string $email, st
 }
 
 function get_admin_smtp_config(): array {
+    $readEnvironmentValue = static function (string $name): string|false {
+        $value = getenv($name);
+        if ($value !== false) {
+            return $value;
+        }
+
+        $serverValue = $_SERVER[$name] ?? null;
+        return is_string($serverValue) ? $serverValue : false;
+    };
     $environmentConfig = [
-        'mailer_path' => getenv('CVFE_PHPMAILER_PATH'),
-        'host' => getenv('CVFE_SMTP_HOST'),
-        'username' => getenv('CVFE_SMTP_USERNAME'),
-        'password' => getenv('CVFE_SMTP_PASSWORD'),
-        'from_email' => getenv('CVFE_SMTP_FROM_EMAIL'),
-        'from_name' => getenv('CVFE_SMTP_FROM_NAME') ?: 'CV Funnel Engine',
-        'port' => getenv('CVFE_SMTP_PORT') ?: '587',
+        'mailer_path' => $readEnvironmentValue('CVFE_PHPMAILER_PATH'),
+        'host' => $readEnvironmentValue('CVFE_SMTP_HOST'),
+        'username' => $readEnvironmentValue('CVFE_SMTP_USERNAME'),
+        'password' => $readEnvironmentValue('CVFE_SMTP_PASSWORD'),
+        'from_email' => $readEnvironmentValue('CVFE_SMTP_FROM_EMAIL'),
+        'from_name' => $readEnvironmentValue('CVFE_SMTP_FROM_NAME') ?: 'CV Funnel Engine',
+        'port' => $readEnvironmentValue('CVFE_SMTP_PORT') ?: '587',
     ];
     $requiredEnvironmentValues = ['mailer_path', 'host', 'username', 'password', 'from_email'];
     $hasEnvironmentConfig = true;
@@ -124,17 +133,51 @@ function get_admin_smtp_config(): array {
         return $environmentConfig;
     }
 
-    $configPath = getenv('CVFE_SMTP_CONFIG_FILE');
-    if (!is_string($configPath) || $configPath === '') {
-        $home = $_SERVER['HOME'] ?? getenv('HOME');
-        $configPath = is_string($home) && $home !== ''
-            ? rtrim($home, '/') . '/.cvfe-smtp.php'
-            : '';
+    $configuredPath = $readEnvironmentValue('CVFE_SMTP_CONFIG_FILE');
+    $configPaths = [];
+    if (is_string($configuredPath) && $configuredPath !== '') {
+        $configPaths[] = $configuredPath;
+    } else {
+        $homeDirectories = [];
+        $serverHome = $_SERVER['HOME'] ?? null;
+        if (is_string($serverHome) && $serverHome !== '') {
+            $homeDirectories[] = $serverHome;
+        }
+        $environmentHome = $readEnvironmentValue('HOME');
+        if (is_string($environmentHome) && $environmentHome !== '') {
+            $homeDirectories[] = $environmentHome;
+        }
+        if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+            $account = posix_getpwuid(posix_geteuid());
+            if (is_array($account) && isset($account['dir']) && is_string($account['dir'])) {
+                $homeDirectories[] = $account['dir'];
+            }
+        }
+
+        foreach (array_unique($homeDirectories) as $home) {
+            if (is_string($home) && $home !== '') {
+                $configPaths[] = rtrim($home, '/') . '/.cvfe-smtp.php';
+            }
+        }
     }
 
-    $resolvedPath = $configPath !== '' ? realpath($configPath) : false;
-    if (!is_string($resolvedPath) || !is_file($resolvedPath) || !is_readable($resolvedPath)) {
-        throw new RuntimeException('Le service email de récupération n’est pas configuré.');
+    $resolvedPath = false;
+    foreach ($configPaths as $configPath) {
+        $candidate = realpath($configPath);
+        if (is_string($candidate) && is_file($candidate)) {
+            $resolvedPath = $candidate;
+            break;
+        }
+    }
+    if (!is_string($resolvedPath)) {
+        $checkedPaths = $configPaths !== [] ? implode(', ', $configPaths) : 'aucun chemin HOME détecté';
+        throw new RuntimeException(
+            "Fichier SMTP privé introuvable (chemins vérifiés : {$checkedPaths}). "
+            . 'Configure CVFE_SMTP_CONFIG_FILE dans l’environnement PHP du site.'
+        );
+    }
+    if (!is_readable($resolvedPath)) {
+        throw new RuntimeException("Le fichier SMTP privé n’est pas lisible par PHP : {$resolvedPath}");
     }
 
     $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
@@ -153,7 +196,7 @@ function get_admin_smtp_config(): array {
 
     $fileConfig = require $resolvedPath;
     if (!is_array($fileConfig)) {
-        throw new RuntimeException('Le fichier de configuration email doit retourner un tableau.');
+        throw new RuntimeException("Le fichier SMTP privé doit retourner un tableau : {$resolvedPath}");
     }
 
     return $fileConfig;
@@ -177,7 +220,24 @@ function send_admin_recovery_email(string $recipient, string $subject, string $t
         || !(is_int($portValue) || (is_string($portValue) && ctype_digit($portValue)))
         || !in_array((int)$portValue, [465, 587], true)
         || !is_string($fromName)) {
-        throw new RuntimeException('Le service email de récupération n’est pas configuré.');
+        $invalidFields = [];
+        foreach ([
+            'mailer_path' => !is_string($mailerPath) || $mailerPath === '',
+            'host' => !is_string($host) || $host === '',
+            'username' => !is_string($username) || $username === '',
+            'password' => !is_string($password) || $password === '',
+            'from_email' => !is_string($fromEmail) || !filter_var($fromEmail, FILTER_VALIDATE_EMAIL),
+            'port' => !(is_int($portValue) || (is_string($portValue) && ctype_digit($portValue)))
+                || !in_array((int)$portValue, [465, 587], true),
+            'from_name' => !is_string($fromName),
+        ] as $field => $isInvalid) {
+            if ($isInvalid) {
+                $invalidFields[] = $field;
+            }
+        }
+        throw new RuntimeException(
+            'Configuration SMTP invalide ou incomplète. Champs à vérifier : ' . implode(', ', $invalidFields)
+        );
     }
 
     $mailerPath = rtrim($mailerPath, '/');

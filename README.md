@@ -112,7 +112,7 @@ Si l’installation a été configurée manuellement ou si le lien initial a exp
 
 ### Emails de récupération (PHPMailer / SMTP)
 
-Installe PHPMailer dans le répertoire personnel du compte serveur, hors du document root (sur DreamHost Shared, suis le [guide PHPMailer DreamHost](https://help.dreamhost.com/hc/en-us/articles/360031174411-PHPMailer-Installing-on-a-shared-server)). La variable `CVFE_PHPMAILER_PATH` doit pointer vers son dossier `src`.
+Installe PHPMailer dans le répertoire personnel du compte serveur, hors du document root (sur DreamHost Shared, suis le [guide PHPMailer DreamHost](https://help.dreamhost.com/hc/en-us/articles/360031174411-PHPMailer-Installing-on-a-shared-server)). `CVFE_PHPMAILER_PATH` (ou la clé `mailer_path` du fichier privé) peut pointer vers le dossier PHPMailer ou directement vers son sous-dossier `src`.
 
 Le site lit en priorité ces variables depuis l’environnement du processus PHP :
 
@@ -126,7 +126,7 @@ Le site lit en priorité ces variables depuis l’environnement du processus PHP
 | `CVFE_SMTP_FROM_EMAIL` | `admin@exemple.ch` | Oui |
 | `CVFE_SMTP_FROM_NAME` | `CV Funnel Engine` | Non |
 
-Les identifiants SMTP sont communs aux instances hébergées sous ce compte ; ils ne vont ni dans Git, ni dans `settings`, ni dans les URLs. Si l’hébergement ne transmet pas ces variables à PHP, le site accepte à la place un fichier PHP serveur `~/.cvfe-smtp.php`, hors document root, lisible par le compte PHP et sans droit d’écriture pour le groupe ou les autres. Ce fichier doit retourner un tableau avec les clés `mailer_path`, `host`, `port`, `username`, `password`, `from_email` et, facultativement, `from_name`. Exemple :
+Les identifiants SMTP sont communs aux instances hébergées sous ce compte ; ils ne vont ni dans Git, ni dans `settings`, ni dans les URLs. Si l’hébergement ne transmet pas ces variables à PHP, le site accepte à la place un fichier PHP serveur `~/.cvfe-smtp.php`, hors document root, lisible par le compte PHP et sans droit d’écriture pour le groupe ou les autres. Le site recherche ce fichier dans le répertoire HOME du processus PHP ou du compte système ; si celui-ci diffère du compte SSH, définis `CVFE_SMTP_CONFIG_FILE` avec le chemin absolu du fichier dans l’environnement PHP du site. Ce fichier doit retourner un tableau avec les clés `mailer_path`, `host`, `port`, `username`, `password`, `from_email` et, facultativement, `from_name`. Exemple :
 
 ```php
 <?php
@@ -141,7 +141,7 @@ return [
 ];
 ```
 
-Le fallback peut pointer vers un autre fichier privé en définissant `CVFE_SMTP_CONFIG_FILE`. Sur DreamHost, vérifie les variables depuis une requête PHP du site : celles exportées uniquement dans un terminal SSH ne sont pas nécessairement transmises au processus web. Les emails sont des messages transactionnels ponctuels ; respecte les [quotas SMTP DreamHost](https://help.dreamhost.com/hc/en-us/articles/215730437-SMTP-quota-limits).
+Sur DreamHost, vérifie les variables depuis une requête PHP du site : celles exportées uniquement dans un terminal SSH ne sont pas nécessairement transmises au processus web. Les logs indiquent désormais les chemins SMTP vérifiés ou les champs de configuration absents, sans enregistrer leurs valeurs. Les emails sont des messages transactionnels ponctuels ; respecte les [quotas SMTP DreamHost](https://help.dreamhost.com/hc/en-us/articles/215730437-SMTP-quota-limits).
 
 ### Modules disponibles
 
