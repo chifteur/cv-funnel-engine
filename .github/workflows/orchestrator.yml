@@ -26,7 +26,7 @@ jobs:
 
     steps:
     - name: 🚚 Recuperation du code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: 📝 Génération du fichier de version
       run: echo "<?php define('APP_VERSION', '${GITHUB_SHA::7}');" > core/version.php
